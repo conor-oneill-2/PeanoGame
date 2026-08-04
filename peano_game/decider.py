@@ -72,6 +72,9 @@ def for_all_decider(var:pawff.Var,form:pawff.Form)->Ternary:
         if f2_res|decider(alt1)==Ternary.FALSE:
             return Ternary.FALSE
 
+    if type(form)==pawff.ExistsForm:
+        return forall_exists_decider(var,form.var,form.form)
+
     return Ternary.UNKNOWN
 
 def poly_eq_decider(polyform1:pawff.Term,polyform2:pawff.Term)->Ternary:
@@ -82,34 +85,30 @@ def poly_eq_decider(polyform1:pawff.Term,polyform2:pawff.Term)->Ternary:
     else:
         return Ternary.FALSE
 
+def forall_exists_decider(forall_var:pawff.Var,exists_var:pawff.Var,form:pawff.Form)->Ternary:
+    if type(form)==pawff.AtForm:
+        #If of the form exists_var=F(forall_var), then result is True
+        if form.term1==exists_var and form.term2.vars_used()=={forall_var}:
+            return Ternary.TRUE
+        if form.term1.vars_used()=={forall_var} and form.term2==exists_var:
+            return Ternary.TRUE
+    return Ternary.UNKNOWN
+
 def exists_decider(var:pawff.Var,form:pawff.Form)->Ternary:
     if type(form)==pawff.AtForm:
         return rational_roots_decider(var,form.term1,form.term2)
 
     if type(form)==pawff.AndForm:
-        #IMPORTANT: Exists(x,F&G) is NOT equivalent to Exists(x,F)&Exists(x,G)
-        #But if Exists(x,F) is False, then Exists(x,F&G) is False
-        #and if Exists(x,G) is False, then Exists(x,F&G) is False
-        f1=pawff.ExistsForm(var,form.form1)
-        f2=pawff.ExistsForm(var,form.form2)
-        f1_res=decider(f1)
-        f2_res=decider(f2)
-        if f1_res==Ternary.FALSE:
-            return Ternary.FALSE
-        if f2_res==Ternary.FALSE:
-            return Ternary.FALSE
+        return exists_and_decider(var,form.form1,form.form2)
 
-        #If And(ForAll(x,F),Exists(x,G)) is True, then Exists(x,F&G) is True
-        #since there is at least one x for which G(x) is True, and F(x) is True for all x
-        alt1=pawff.ForAllForm(var,form.form1)
-        alt2=pawff.ForAllForm(var,form.form2)
-        if f1_res==Ternary.TRUE:  # noqa: SIM102
-            if decider(alt2)==Ternary.TRUE:
-                return Ternary.TRUE
-        if f2_res==Ternary.TRUE:  # noqa: SIM102
-            if decider(alt1)==Ternary.TRUE:
-                return Ternary.TRUE
-    return Ternary.UNKNOWN
+    if type(form)==pawff.ForAllForm:
+        return exists_forall_decider(var,form.var,form.form)
+
+    vars={var}
+    while type(form)==pawff.ExistsForm:
+        vars.add(form.var)
+        form=form.form
+    return exists_multivar_decider(vars,form)
 
 def rational_roots_decider(var:pawff.Var,term1:pawff.Term,term2:pawff.Term)->Ternary:
     t1_val=term1(**{str(var):pawff.Zero()}).eval()
@@ -126,3 +125,48 @@ def rational_roots_decider(var:pawff.Var,term1:pawff.Term,term2:pawff.Term)->Ter
         if t1_val==t2_val:
             return Ternary.TRUE
     return Ternary.FALSE
+
+def exists_and_decider(var:pawff.Var,form1:pawff.Form,form2:pawff.Form)->Ternary:
+    #IMPORTANT: Exists(x,F&G) is NOT equivalent to Exists(x,F)&Exists(x,G)
+    #But if Exists(x,F) is False, then Exists(x,F&G) is False
+    #and if Exists(x,G) is False, then Exists(x,F&G) is False
+    f1=pawff.ExistsForm(var,form1)
+    f2=pawff.ExistsForm(var,form2)
+    f1_res=decider(f1)
+    f2_res=decider(f2)
+    if f1_res==Ternary.FALSE:
+        return Ternary.FALSE
+    if f2_res==Ternary.FALSE:
+        return Ternary.FALSE
+
+    #If And(ForAll(x,F),Exists(x,G)) is True, then Exists(x,F&G) is True
+    #since there is at least one x for which G(x) is True, and F(x) is True for all x
+    alt1=pawff.ForAllForm(var,form1)
+    alt2=pawff.ForAllForm(var,form2)
+    if f1_res==Ternary.TRUE:  # noqa: SIM102
+        if decider(alt2)==Ternary.TRUE:
+            return Ternary.TRUE
+    if f2_res==Ternary.TRUE:  # noqa: SIM102
+        if decider(alt1)==Ternary.TRUE:
+            return Ternary.TRUE
+
+    return Ternary.UNKNOWN
+
+def exists_forall_decider(exists_var:pawff.Var,forall_var:pawff.Var,form:pawff.Form)->Ternary:
+    if type(form)==pawff.AtForm:
+        #Consider Exists(x,ForAll(y,F(x)=G(y))).
+        #For any given value of x, F(x) is fixed, but G(y) varies, so the theorem is false.
+        if form.term1.vars_used()=={exists_var} and form.term2.vars_used()=={forall_var}:
+            return Ternary.FALSE
+        if form.term1.vars_used()=={forall_var} or form.term2.vars_used()=={exists_var}:
+            return Ternary.FALSE
+    return Ternary.UNKNOWN
+    
+def exists_multivar_decider(vars:set[pawff.Var],form:pawff.Form)->Ternary:
+    if type(form)==pawff.AtForm:
+        #x=F(y,z,...) is True, just by setting x to whatever the RHS evaluates to            
+        if type(form.term1)==pawff.Var and (form.term1 not in form.term2.vars_used()):
+               return Ternary.TRUE
+        if type(form.term2)==pawff.Var and (form.term2 not in form.term1.vars_used()):
+                return Ternary.TRUE
+    return Ternary.UNKNOWN

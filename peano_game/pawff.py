@@ -19,7 +19,7 @@ class Term(ABC):
         pass
 
     @abstractmethod
-    def vars_used(self,result:set) -> None:
+    def vars_used(self) -> set:
         pass
 
     @abstractmethod
@@ -35,23 +35,21 @@ class Var(Term):
     def __init__(self,num:int):
         assert(num>=0)
         self.num=num
+        self.vars={self}
         self.poly_cache=None
     
-    def vars_used(self,result:set) -> None:
-        if self not in result:
-            result.add(self)
+    def vars_used(self) -> set:
+        return self.vars
     
     def eval(self)->int:
         raise TypeError(f"{self} is not enumerable.")
 
     def poly(self) -> Poly:
         #Cache result
-        if self.poly_cache!=None:
-            return self.poly_cache
-        
-        ddictpoly=defaultdict(int)
-        ddictpoly[frozenset([(self,1)])]=1 #Key: x_0^1, Val: coefficient=1
-        self.poly_cache=Poly(ddictpoly)
+        if self.poly_cache is None:    
+            ddictpoly=defaultdict(int)
+            ddictpoly[frozenset([(self,1)])]=1 #Key: x_0^1, Val: coefficient=1
+            self.poly_cache=Poly(ddictpoly)
         return self.poly_cache
     
     def __eq__(self,other):
@@ -71,13 +69,18 @@ class Var(Term):
         return "x"+str(self.num)
 
 class Zero(Term):
+    def __init__(self):
+        self.vars=set()
+        self.poly_cache=None
     #Adds all vars used in subterms to result
     #But 0 has no subterms, so passes
-    def vars_used(self,result:set) -> None:
-        pass
+    def vars_used(self) -> set:
+        return self.vars
     
     def poly(self) -> Poly:
-        return Poly(defaultdict(int))
+        if self.poly_cache is None:
+            self.poly_cache=Poly(defaultdict(int))
+        return self.poly_cache
 
     # def can_eval(self):
     #     return True
@@ -110,21 +113,24 @@ class Succ(Term):
         self.val_cache=None
         self.eval_cache=None
         self.poly_cache=None
+        self.vars=None
     
-    def vars_used(self,result:set)->None:
-        self.term.vars_used(result)
+    def vars_used(self)->set:
+        if self.vars is None:
+            self.vars=self.term.vars_used()
+        return self.vars
     
     # def can_eval(self):
     #     return self.term.can_eval()
     
     def is_num(self):
         #Cache of result
-        if self.is_num_cache==None:
+        if self.is_num_cache is None:
             self.is_num_cache=self.term.is_num()
         return self.is_num_cache
     
     def val(self):
-        if self.val_cache!=None:
+        if self.val_cache is not None:
             return self.val_cache
         
         try:
@@ -137,18 +143,14 @@ class Succ(Term):
     # S(0+0) is simplified in val form
     # but S(0+0)=1 in eval form
     def eval(self)->int:
-        if self.eval_cache!=None:
-            return self.eval_cache
-        
-        self.eval_cache=self.term.eval()+1
+        if self.eval_cache is None:
+            self.eval_cache=self.term.eval()+1
         return self.eval_cache
 
     def poly(self) -> Poly:
-        if self.poly_cache!=None:
-            return self.poly_cache
-
-        inner_poly=self.term.poly()
-        self.poly_cache=inner_poly+1
+        if self.poly_cache is None:
+            inner_poly=self.term.poly()
+            self.poly_cache=inner_poly+1
         return self.poly_cache
         
     # def __eq__(self,other):
@@ -177,10 +179,12 @@ class Plus(Term):
         self.term2=term2
         self.eval_cache=None
         self.poly_cache=None
+        self.vars=None
     
-    def vars_used(self,result:set) -> None:
-        self.term1.vars_used(result)
-        self.term2.vars_used(result)
+    def vars_used(self) -> set:
+        if self.vars is None:
+            self.vars=self.term1.vars_used()|self.term2.vars_used()
+        return self.vars
     
     # def can_eval(self):
     #     return self.term1.can_eval() and self.term2.can_eval()
@@ -200,17 +204,15 @@ class Plus(Term):
     #     # raise ValueError(str(self)+" is not a number.")
     
     def eval(self)->int:
-        if self.eval_cache==None:
+        if self.eval_cache is None:
             self.eval_cache=self.term1.eval()+self.term2.eval()
         return self.eval_cache
     
     def poly(self) -> Poly:
-        if self.poly_cache!=None:
-            return self.poly_cache
-
-        left_poly=self.term1.poly()
-        right_poly=self.term2.poly()
-        self.poly_cache=left_poly+right_poly
+        if self.poly_cache is None:
+            left_poly=self.term1.poly()
+            right_poly=self.term2.poly()
+            self.poly_cache=left_poly+right_poly
         return self.poly_cache
 
     # def __eq__(self,other):
@@ -231,9 +233,10 @@ class Times(Term):
         self.eval_cache=None
         self.poly_cache=None
     
-    def vars_used(self,result:set) -> None:
-        self.term1.vars_used(result)
-        self.term2.vars_used(result)
+    def vars_used(self) -> set:
+        if self.vars is None:
+            self.vars=self.term1.vars_used()|self.term2.vars_used()
+        return self.vars
     
     # def can_eval(self):
     #     return self.term1.can_eval() and self.term2.can_eval()
@@ -252,17 +255,15 @@ class Times(Term):
     #     # raise ValueError(str(self)+" is not a number.")
     
     def eval(self)->int:
-        if self.eval_cache==None:
+        if self.eval_cache is None:
             self.eval_cache=self.term1.eval()*self.term2.eval()
         return self.eval_cache
 
     def poly(self)->Poly:
-        if self.poly_cache!=None:
-            return self.poly_cache
-        
-        leftpoly=self.term1.poly()
-        rightpoly=self.term2.poly()
-        self.poly_cache=leftpoly*rightpoly
+        if self.poly_cache is None:
+            leftpoly=self.term1.poly()
+            rightpoly=self.term2.poly()
+            self.poly_cache=leftpoly*rightpoly
         return self.poly_cache
     
     # def __eq__(self,other):
@@ -286,17 +287,19 @@ class Times(Term):
 class Form(ABC):
     #Given a set, add all vars used in the formula into the set
     @abstractmethod
-    def vars_used(self,result:set)->None:
+    def vars_used(self)->set:
         pass
 
 class AtForm(Form):
     def __init__(self,term1:Term,term2:Term):
         self.term1=term1
         self.term2=term2
+        self.vars=None
     
-    def vars_used(self,result:set)->None:
-        self.term1.vars_used(result)
-        self.term2.vars_used(result)
+    def vars_used(self)->set:
+        if self.vars is None:
+            self.vars=self.term1.vars_used()|self.term2.vars_used()
+        return self.vars
     
     # def __eq__(self,other):
     #     if type(other)!=AtForm:
@@ -312,9 +315,12 @@ class AtForm(Form):
 class NotForm(Form):
     def __init__(self,form:Form):
         self.form=form
+        self.vars=None
     
-    def vars_used(self,result:set)->None:
-        self.form.vars_used(result)
+    def vars_used(self)->set:
+        if self.vars is None:
+            self.vars=self.form.vars_used()
+        return self.vars
     
     # def __eq__(self,other):
     #     if type(other)!=NotForm:
@@ -331,10 +337,12 @@ class AndForm(Form):
     def __init__(self,form1:Form,form2:Form):
         self.form1=form1
         self.form2=form2
+        self.vars=None
 
-    def vars_used(self,result:set)->None:
-        self.form1.vars_used(result)
-        self.form2.vars_used(result)
+    def vars_used(self)->set:
+        if self.vars is None:
+            self.vars=self.form1.vars_used()|self.form2.vars_used()
+        return self.vars
     
     # def __eq__(self,other):
     #     if type(other)!=AndForm:
@@ -351,10 +359,12 @@ class OrForm(Form):
     def __init__(self,form1:Form,form2:Form):
         self.form1=form1
         self.form2=form2
+        self.vars=None
 
-    def vars_used(self,result:set)->None:
-        self.form1.vars_used(result)
-        self.form2.vars_used(result)
+    def vars_used(self)->set:
+        if self.vars is None:
+            self.vars=self.form1.vars_used()|self.form2.vars_used()
+        return self.vars
 
     # def __eq__(self,other):
     #     if type(other)!=OrForm:
@@ -371,10 +381,12 @@ class ImpliesForm(Form):
     def __init__(self,form1:Form,form2:Form):
         self.form1=form1
         self.form2=form2
+        self.vars=None
 
-    def vars_used(self,result:set)->None:
-        self.form1.vars_used(result)
-        self.form2.vars_used(result)
+    def vars_used(self)->set:
+        if self.vars is None:
+            self.vars=self.form1.vars_used()|self.form2.vars_used()
+        return self.vars
 
     # def __eq__(self,other):
     #     if type(other)!=ImpliesForm:
@@ -391,12 +403,15 @@ class ForAllForm(Form):
     def __init__(self,var:Var,form:Form):
         self.var=var
         self.form=form
+        self.vars=None
 
     #vars_used is used to determine if ForAllForm(x,F)/ExistsForm(x,F)
     #can be reduced to F due to no dependence on x
     #As such, the variable x should not be counted as a used variable
-    def vars_used(self,result:set)->None:
-        self.form.vars_used(result)
+    def vars_used(self)->set:
+        if self.vars is None:
+            self.vars=self.form.vars_used()
+        return self.vars
 
     # def __eq__(self,other):
     #     if type(other)!=ForAllForm:
@@ -416,13 +431,14 @@ class ExistsForm(Form):
         self.var=var
         self.form=form
         self.vars=None
-        self.free=None
 
     #vars_used is used to determine if ForAllForm(x,F)/ExistsForm(x,F)
     #can be reduced to F due to no dependence on x
     #As such, the variable x should not be counted as a used variable
-    def vars_used(self,result:set)->None:
-        self.form.vars_used(result)
+    def vars_used(self)->set:
+        if self.vars is None:
+            self.vars=self.form.vars_used()
+        return self.vars
 
     # def __eq__(self,other):
     #     if type(other)!=ExistsForm:

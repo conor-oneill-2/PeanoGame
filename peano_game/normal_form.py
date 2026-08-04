@@ -121,9 +121,7 @@ def first_normal_form(form:pawff.Form,recursive=True) -> pawff.Form:
                 inner=form.form
 
             #ForAll(x,F) => F, if F does not depend on x
-            used_vars=set()
-            inner.vars_used(used_vars)
-            if form.var not in used_vars:
+            if form.var not in inner.vars_used():
                 return inner
             
             #ForAll(x,~F) => ~Exists(x,F)
@@ -150,9 +148,7 @@ def first_normal_form(form:pawff.Form,recursive=True) -> pawff.Form:
                 inner=form.form
 
             #Exists(x,F) => F, if F does not depend on x
-            used_vars=set()
-            inner.vars_used(used_vars)
-            if form.var not in used_vars:
+            if form.var not in inner.vars_used():
                 return inner
             
             #Exists(x,~F) => ~ForAll(x,F)
