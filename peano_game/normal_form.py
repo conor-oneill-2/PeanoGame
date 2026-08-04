@@ -63,51 +63,62 @@ def first_tnf(term:pawff.Term)->pawff.Term:
 
     assert(False) #Code unreachable
 
-def first_normal_form(form:pawff.Form) -> pawff.Form:
+def first_normal_form(form:pawff.Form,recursive=True) -> pawff.Form:
     match type(form):
         case pawff.AtForm:
-            t1=first_tnf(form.term1)
-            t2=first_tnf(form.term2)
+            if recursive:
+                t1=first_tnf(form.term1)
+                t2=first_tnf(form.term2)
+            else:
+                t1=form.term1
+                t2=form.term2
             #S(x)=S(y) => x=y
             while type(t1)==pawff.Succ and type(t2)==pawff.Succ:
                 t1=t1.term
                 t2=t2.term
             return pawff.AtForm(t1,t2)
         case pawff.NotForm:
-            inner=first_normal_form(form.form)
+            if recursive:
+                inner=first_normal_form(form.form,recursive)
+            else:
+                inner=form.form
             #NOT(NOT(F)) => F
             if type(inner)==pawff.NotForm:
                 return inner.form
             return pawff.NotForm(inner)
         case pawff.AndForm:
-            f1=first_normal_form(form.form1)
-            f2=first_normal_form(form.form2)
+            if recursive:
+                f1=first_normal_form(form.form1)
+                f2=first_normal_form(form.form2)
+            else:
+                f1=form.form1
+                f2=form.form2
             #De Morgans Law: ~F & ~G => ~ (F|G)
             if type(f1)==pawff.NotForm and type(f2)==pawff.NotForm:
                 return pawff.NotForm(pawff.OrForm(f1.form,f2.form))
             return pawff.AndForm(f1,f2)
         case pawff.OrForm:
-            f1=first_normal_form(form.form1)
-            f2=first_normal_form(form.form2)
+            if recursive:
+                f1=first_normal_form(form.form1)
+                f2=first_normal_form(form.form2)
+            else:
+                f1=form.form1
+                f2=form.form2
             #De Morgans Law: ~F | ~G => ~ (F&G)
             if type(f1)==pawff.NotForm and type(f2)==pawff.NotForm:
                 return pawff.NotForm(pawff.AndForm(f1.form,f2.form))
             return pawff.OrForm(f1,f2)
         case pawff.ImpliesForm:
-            f1=first_normal_form(form.form1)
-            f2=first_normal_form(form.form2)
-            #(F->G) => (~F)|G
-            #However, taking the above simplification is not always desired
-            #So we only take the above simplification if we can also perform a further simplification
-            #so (~F -> G) => ~~F | G => F|G
-            #or (F->~G) => ~F | ~G => ~ (F&G)
-            if type(f1)==pawff.NotForm:
-                return pawff.OrForm(f1.form,f2)
-            if type(f2)==pawff.NotForm:
-                return pawff.NotForm(pawff.AndForm(f1,f2.form))
-            return pawff.ImpliesForm(f1,f2)
+            #(F->G) => ~F | G
+            return first_normal_form(pawff.OrForm(
+                pawff.NotForm(form.form1),
+                form.form2
+            ))
         case pawff.ForAllForm:
-            inner=first_normal_form(form.form)
+            if recursive:
+                inner=first_normal_form(form.form,recursive)
+            else:
+                inner=form.form
 
             #ForAll(x,F) => F, if F does not depend on x
             used_vars=set()
@@ -117,18 +128,26 @@ def first_normal_form(form:pawff.Form) -> pawff.Form:
             
             #ForAll(x,~F) => ~Exists(x,F)
             if type(inner)==pawff.NotForm:
-                return pawff.NotForm(pawff.ExistsForm(form.var,inner))
+                #Do not recurse, as recursion would be redundant (inner already in 1NF)
+                return pawff.NotForm(first_normal_form(
+                    pawff.ExistsForm(form.var,inner.form),
+                    False
+                ))
             
             #ForAll(x,F&G) => ForAll(x,F)&ForAll(x,G)
             if type(inner)==pawff.AndForm:
+                #Do not recurse, as recursion would be redundant (inner already in 1NF)
                 return pawff.AndForm(
-                    pawff.ForAllForm(form.var,inner.form1),
-                    pawff.ForAllForm(form.var,inner.form2)
+                    first_normal_form(pawff.ForAllForm(form.var,inner.form1),False),
+                    first_normal_form(pawff.ForAllForm(form.var,inner.form2),False)
                 )
             
             return pawff.ForAllForm(form.var,inner)
         case pawff.ExistsForm:
-            inner=first_normal_form(form.form)
+            if recursive:
+                inner=first_normal_form(form.form)
+            else:
+                inner=form.form
 
             #Exists(x,F) => F, if F does not depend on x
             used_vars=set()
@@ -138,13 +157,18 @@ def first_normal_form(form:pawff.Form) -> pawff.Form:
             
             #Exists(x,~F) => ~ForAll(x,F)
             if type(inner)==pawff.NotForm:
-                return pawff.NotForm(pawff.ForAllForm(form.var,inner))
+                #Do not recurse, as recursion would be redundant (inner already in 1NF)
+                return pawff.NotForm(first_normal_form(
+                    pawff.ForAllForm(form.var,inner.form),
+                    False
+                ))
 
             #Exists(x,F|G) => Exists(x,F)|Exists(x,G)
             if type(inner)==pawff.OrForm:
+                #Do not recurse, as recursion would be redundant (inner already in 1NF)
                 return pawff.OrForm(
-                    pawff.ExistsForm(form.var,inner.form1),
-                    pawff.ExistsForm(form.var,inner.form2)
+                    first_normal_form(pawff.ExistsForm(form.var,inner.form1),False),
+                    first_normal_form(pawff.ExistsForm(form.var,inner.form2),False)
                 )
 
 

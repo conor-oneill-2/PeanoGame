@@ -1,10 +1,10 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from collections import defaultdict
 
-from peano_game.poly import Poly
 
-
-class Term:
+class Term(ABC):
     #Assume a Term is not a number unless overloaded
     #  Zero overloads to True
     #  Succ(x) overloads to is_num(x)
@@ -26,6 +26,10 @@ class Term:
     def poly(self) -> Poly:
         pass
 
+    @abstractmethod
+    def __call__(self,**kwargs:Term)->Term:
+        pass
+
 class Var(Term):
     #Vars are indexed as x_0, x_1, etc.
     def __init__(self,num:int):
@@ -39,11 +43,6 @@ class Var(Term):
     
     def eval(self)->int:
         raise TypeError(f"{self} is not enumerable.")
-    
-    def __eq__(self,other):
-        if type(other)!=Var:
-            return False
-        return self.num==other.num
 
     def poly(self) -> Poly:
         #Cache result
@@ -51,14 +50,19 @@ class Var(Term):
             return self.poly_cache
         
         ddictpoly=defaultdict(int)
-        ddictpoly[{(self,1)}]=1
+        ddictpoly[frozenset([(self,1)])]=1 #Key: x_0^1, Val: coefficient=1
         self.poly_cache=Poly(ddictpoly)
         return self.poly_cache
     
-    # def __call__(self,**kwargs):
-    #     if str(self) in kwargs:
-    #         return kwargs[str(self)]
-    #     return self
+    def __eq__(self,other):
+        if type(other)!=Var:
+            return False
+        return self.num==other.num
+
+    def __call__(self,**kwargs:Term)->Term:
+        if str(self) in kwargs:
+            return kwargs[str(self)]
+        return self
     
     def __hash__(self):
         return hash(str(self))
@@ -90,8 +94,8 @@ class Zero(Term):
     # def __eq__(self,other):
     #     return type(other)==Zero
     
-    # def __call__(self,**kwargs):
-    #     return self
+    def __call__(self,**kwargs):
+        return self
     
     # def __hash__(self):
     #     return hash(str(self))
@@ -108,7 +112,7 @@ class Succ(Term):
         self.poly_cache=None
     
     def vars_used(self,result:set)->None:
-        self.vars_used(result)
+        self.term.vars_used(result)
     
     # def can_eval(self):
     #     return self.term.can_eval()
@@ -116,7 +120,7 @@ class Succ(Term):
     def is_num(self):
         #Cache of result
         if self.is_num_cache==None:
-            self.is_num_cache=self.term.is_num()        
+            self.is_num_cache=self.term.is_num()
         return self.is_num_cache
     
     def val(self):
@@ -146,7 +150,6 @@ class Succ(Term):
         inner_poly=self.term.poly()
         self.poly_cache=inner_poly+1
         return self.poly_cache
-            
         
     # def __eq__(self,other):
     #     if type(other)!=Succ:
@@ -157,8 +160,8 @@ class Succ(Term):
     #         return self.val()==other.val()
     #     return self.term==other.term
     
-    # def __call__(self,**kwargs):
-    #     return Succ(self.term(**kwargs))
+    def __call__(self,**kwargs):
+        return Succ(self.term(**kwargs))
     
     # def __hash__(self):
     #     return hash(str(self))
@@ -173,6 +176,7 @@ class Plus(Term):
         self.term1=term1
         self.term2=term2
         self.eval_cache=None
+        self.poly_cache=None
     
     def vars_used(self,result:set) -> None:
         self.term1.vars_used(result)
@@ -200,13 +204,22 @@ class Plus(Term):
             self.eval_cache=self.term1.eval()+self.term2.eval()
         return self.eval_cache
     
+    def poly(self) -> Poly:
+        if self.poly_cache!=None:
+            return self.poly_cache
+
+        left_poly=self.term1.poly()
+        right_poly=self.term2.poly()
+        self.poly_cache=left_poly+right_poly
+        return self.poly_cache
+
     # def __eq__(self,other):
     #     if type(other)!=Plus:
     #         return False
     #     return self.term1==other.term1 and self.term2==other.term2
     
-    # def __call__(self,**kwargs):
-    #     return Plus(self.term1(**kwargs),self.term2(**kwargs))
+    def __call__(self,**kwargs):
+        return Plus(self.term1(**kwargs),self.term2(**kwargs))
 
     def __str__(self):
         return str(self.term1)+"+"+str(self.term2)
@@ -216,6 +229,7 @@ class Times(Term):
         self.term1=term1
         self.term2=term2
         self.eval_cache=None
+        self.poly_cache=None
     
     def vars_used(self,result:set) -> None:
         self.term1.vars_used(result)
@@ -241,14 +255,23 @@ class Times(Term):
         if self.eval_cache==None:
             self.eval_cache=self.term1.eval()*self.term2.eval()
         return self.eval_cache
+
+    def poly(self)->Poly:
+        if self.poly_cache!=None:
+            return self.poly_cache
+        
+        leftpoly=self.term1.poly()
+        rightpoly=self.term2.poly()
+        self.poly_cache=leftpoly*rightpoly
+        return self.poly_cache
     
     # def __eq__(self,other):
     #     if type(other)!=Times:
     #         return False
     #     return self.term1==other.term1 and self.term2==other.term2
     
-    # def __call__(self,**kwargs):
-    #     return Times(self.term1(**kwargs),self.term2(**kwargs))
+    def __call__(self,**kwargs):
+        return Times(self.term1(**kwargs),self.term2(**kwargs))
     
     def __str__(self):
         t1str=str(self.term1)
@@ -420,3 +443,50 @@ def succ_form(n:int):
     if n==0:
         return Zero()
     return Succ(succ_form(n-1))
+
+def dictsum(d1:frozenset[tuple[Var,int]],d2:frozenset[tuple[Var,int]])->frozenset[tuple[Var,int]]:
+    result:set[tuple[Var,int]]=set()
+    for k,v in d1:
+        result.add((k,v))
+    for k,v in d2:
+        for k2,v2 in result:
+            if k==k2:
+                result.remove((k2,v2))
+                val=v2
+        val=0
+        result.add((k,v+val))
+    return frozenset(result)
+
+class Poly:
+    def __init__(self,poly:defaultdict[frozenset[tuple[Var,int]],int]):
+        self.poly=poly
+        
+    def __eq__(self,other):
+        return self.poly==other.poly
+
+    def __add__(self,other:int|Poly)->Poly:
+        if type(other)==int:
+            poly=self.poly.copy()
+            poly[frozenset()]+=other
+            return Poly(poly)
+        assert(type(other)==Poly)
+        poly=self.poly.copy()
+        for k,v in other.poly.items():
+            poly[k]+=v
+        return Poly(poly)
+
+    def __mul__(self,other:int|Poly)->Poly:
+        if type(other)==int:
+            poly=self.poly.copy()
+            for k in poly:
+                poly[k]*=other
+            return Poly(poly)
+        assert(type(other)==Poly)
+        poly=defaultdict(int)
+        for k1,v1 in self.poly.items():
+            for k2,v2 in other.poly.items():
+                poly[dictsum(k1,k2)]+=v1*v2
+        return Poly(poly)
+    
+    def __str__(self):
+        return str(self.poly)
