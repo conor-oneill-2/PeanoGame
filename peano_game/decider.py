@@ -61,7 +61,7 @@ def for_all_decider(var:pawff.Var,form:pawff.Form)->Ternary:
         #But if ForAll(x,F) is True, then ForAll(x,F|G) is True
         #and if ForAll(x,G) is True, then ForAll(x,F|G) is True
         iforms=(pawff.ForAllForm(var,iform) for iform in form.forms)
-        iforms_dec=(decider(iform) for iform in iforms)
+        iforms_dec=tuple(decider(iform) for iform in iforms)
         if any(iform_dec==Ternary.TRUE for iform_dec in iforms_dec):
             return Ternary.TRUE
 
@@ -70,10 +70,10 @@ def for_all_decider(var:pawff.Var,form:pawff.Form)->Ternary:
         #and similarly, if ForAll(x,F) is false and for all other terms Exists(x,G) are false,
         #then the whole formula is false
         altforms=(pawff.ExistsForm(var,iform) for iform in form.forms)
-        altforms_dec=(decider(altform) for altform in altforms)
-        for j in range(len(form.forms)):
+        altforms_dec=tuple(decider(altform) for altform in altforms)
+        for j,iform_dec in enumerate(iforms_dec):
             result=Ternary.FALSE
-            for i, (altform_dec,iform_dec) in enumerate(zip(altforms_dec,iforms_dec)):
+            for i, altform_dec in enumerate(altforms_dec):
                 if i==j:
                     check_val=iform_dec
                 else:
@@ -143,17 +143,18 @@ def exists_and_decider(var:pawff.Var,*forms:pawff.Form)->Ternary:
     #But if Exists(x,F) is False, then Exists(x,F&G) is False
     #and if Exists(x,G) is False, then Exists(x,F&G) is False
     iforms=(pawff.ExistsForm(var,iform) for iform in forms)
-    iforms_dec=(decider(iform) for iform in iforms)
+    iforms_dec=tuple(decider(iform) for iform in iforms)
     if any(iform_dec==Ternary.FALSE for iform_dec in iforms_dec):
         return Ternary.FALSE
 
     #If And(ForAll(x,F),Exists(x,G)) is True, then Exists(x,F&G) is True
     #since there is at least one x for which G(x) is True, and F(x) is True for all x
-    altforms=(pawff.ForAllForm(var,iform) for iform in iforms)
-    altforms_dec=(decider(altform) for altform in altforms)
-    for j in range(len(forms)):
+    #By the same logic, if you have Exists(x,F)&ForAll(x,G)&ForAll(x,H), then Exists(x,F&G&H) is True
+    altforms=(pawff.ForAllForm(var,iform) for iform in forms)
+    altforms_dec=tuple(decider(altform) for altform in altforms)
+    for j,iform_dec in enumerate(iforms_dec):
         result=Ternary.TRUE
-        for i, (altform_dec,iform_dec) in enumerate(zip(altforms_dec,iforms_dec)):
+        for i, altform_dec in enumerate(altforms_dec):
             if i==j:
                 check_val=iform_dec
             else:
