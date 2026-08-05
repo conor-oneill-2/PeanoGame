@@ -334,14 +334,15 @@ class NotForm(Form):
         return f"¬({self.form})"
 
 class AndForm(Form):
-    def __init__(self,form1:Form,form2:Form):
-        self.form1=form1
-        self.form2=form2
+    def __init__(self,*forms:Form):
+        self.forms=forms
         self.vars=None
 
     def vars_used(self)->set:
         if self.vars is None:
-            self.vars=self.form1.vars_used()|self.form2.vars_used()
+            self.vars=set()
+            for form in self.forms:
+                self.vars|=form.vars_used()
         return self.vars
     
     # def __eq__(self,other):
@@ -353,17 +354,18 @@ class AndForm(Form):
     #     return AndForm(self.form1(**kwargs),self.form2(**kwargs))
 
     def __str__(self):
-        return f"({self.form1})∧({self.form2})"
-
+        return f"({'∧'.join(f"({x})" for x in self.forms)})"
+        
 class OrForm(Form):
-    def __init__(self,form1:Form,form2:Form):
-        self.form1=form1
-        self.form2=form2
+    def __init__(self,*forms:Form):
+        self.forms=forms
         self.vars=None
 
     def vars_used(self)->set:
         if self.vars is None:
-            self.vars=self.form1.vars_used()|self.form2.vars_used()
+            self.vars=set()
+            for form in self.forms:
+                self.vars|=form.vars_used()
         return self.vars
 
     # def __eq__(self,other):
@@ -375,7 +377,7 @@ class OrForm(Form):
     #     return OrForm(self.form1(**kwargs),self.form2(**kwargs))
 
     def __str__(self):
-        return f"({self.form1})∨({self.form2})"
+        return f"({'∨'.join(f"({x})" for x in self.forms)})"
 
 class ImpliesForm(Form):
     def __init__(self,form1:Form,form2:Form):
