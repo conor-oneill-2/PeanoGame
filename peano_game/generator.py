@@ -110,15 +110,17 @@ def godel(wff:pawff.Form,num_vars_used:int=0) -> int:
         case pawff.NotForm:
             return 7*godel(wff.form,num_vars_used)+1
         case pawff.AndForm:
+            assert(len(wff.forms)==2)
             k=bij_inv(
-                godel(wff.form1,num_vars_used),
-                godel(wff.form2,num_vars_used)
+                godel(wff.forms[0],num_vars_used),
+                godel(wff.forms[1],num_vars_used)
             )
             return 7*k+2
         case pawff.OrForm:
+            assert(len(wff.forms)==2)
             k=bij_inv(
-                godel(wff.form1,num_vars_used),
-                godel(wff.form2,num_vars_used)
+                godel(wff.forms[0],num_vars_used),
+                godel(wff.forms[1],num_vars_used)
             )
             return 7*k+3
         case pawff.ImpliesForm:
