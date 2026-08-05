@@ -1,4 +1,5 @@
-from generator import *
+from peano_game.generator import *
+
 
 def test_bij():
     for i in range(1000):
