@@ -9,7 +9,7 @@ def write_results():
         for i in range(5000):
             w = wff(i)
             result = decider(w)
-            f.write(f"{i}, {result}\n")
+            _=f.write(f"{i}, {result}\n")
 
 def test_compare_results():
     with open("tests/results.txt", "r") as f:

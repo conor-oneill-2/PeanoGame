@@ -1,4 +1,7 @@
 # pyright: reportAttributeAccessIssue=none
+# pyright: reportUnknownArgumentType=false
+# pyright: reportUnknownMemberType=false
+# pyright: reportUnknownVariableType=none
 
 from peano_game import pawff
 
@@ -60,10 +63,10 @@ def first_tnf(term:pawff.Term)->pawff.Term:
                     return t1
             
             return pawff.Times(t1,t2)
+        case _:
+            raise ValueError(f"Unexpected term type: {type(term)}")
 
-    assert(False) #Code unreachable
-
-def first_normal_form(form:pawff.Form,recursive=True) -> pawff.Form:
+def first_normal_form(form:pawff.Form,recursive:bool=True) -> pawff.Form:
     match type(form):
         case pawff.AtForm:
             if recursive:
@@ -161,5 +164,5 @@ def first_normal_form(form:pawff.Form,recursive=True) -> pawff.Form:
                 )
 
             return pawff.ExistsForm(form.var,inner)
-
-    assert(False) #Code unreachable
+        case _:
+            raise ValueError(f"Unexpected form type: {type(form)}")

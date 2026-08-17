@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from enum import Enum
 
 
@@ -16,19 +18,19 @@ class Ternary(Enum):
             return Ternary.TRUE
         return self
     
-    def __and__(self,other):
+    def __and__(self,other:Ternary):
         if (self==Ternary.FALSE) or (other==Ternary.FALSE):
             return Ternary.FALSE
         if (self==Ternary.TRUE) and (other==Ternary.TRUE):
             return Ternary.TRUE
         return Ternary.UNKNOWN
     
-    def __or__(self,other):
+    def __or__(self,other:Ternary):
         if (self==Ternary.TRUE) or (other==Ternary.TRUE):
             return Ternary.TRUE
         if (self==Ternary.FALSE) and (other==Ternary.FALSE):
             return Ternary.FALSE
         return Ternary.UNKNOWN
     
-    def __str__(self):
+    def __str__(self):  # pyright: ignore[reportImplicitOverride]
         return self.value

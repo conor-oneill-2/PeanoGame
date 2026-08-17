@@ -1,4 +1,7 @@
 # pyright: reportAttributeAccessIssue=none
+# pyright: reportUnknownMemberType=none
+# pyright: reportUnknownVariableType=none
+# pyright: reportUnknownArgumentType=none
 
 from math import isqrt
 
@@ -22,14 +25,14 @@ def bij_inv(x:int,y:int):
     k0=(xplusy*(xplusy+1))//2
     return y+k0
 
-def term_wff(godel_num:int,num_vars_used) -> pawff.Term:
+def term_wff(godel_num:int,num_vars_used:int) -> pawff.Term:
     if godel_num==0:
         return pawff.Zero()
     if godel_num<=num_vars_used:
         return pawff.Var(godel_num-1)
     #remainder
     rem=godel_num-num_vars_used-1
-    match rem%3:
+    match rem%3:  # pyright: ignore[reportMatchNotExhaustive]
         case 0:
             return pawff.Succ(term_wff(rem//3,num_vars_used))
         case 1:
@@ -47,7 +50,7 @@ def term_wff(godel_num:int,num_vars_used) -> pawff.Term:
 
     assert(False) #Code unreachable
 
-def godel_term(wff:pawff.Term,num_vars_used) -> int:
+def godel_term(wff:pawff.Term,num_vars_used:int) -> int:
     match type(wff):
         case pawff.Zero:
             return 0
@@ -65,12 +68,12 @@ def godel_term(wff:pawff.Term,num_vars_used) -> int:
             sub1=godel_term(wff.term1,num_vars_used)
             sub2=godel_term(wff.term2,num_vars_used)
             return 3*bij_inv(sub1,sub2)+num_vars_used+3
-
-    assert(False) #Code unreachable
+        case _:
+            raise ValueError(f"Unexpected term type: {type(wff)}")
 
 def wff(godel_num:int,num_vars_used:int=0) -> pawff.Form:
     assert(godel_num>=0)
-    match godel_num%7:
+    match godel_num%7:  # pyright: ignore[reportMatchNotExhaustive]
         case 0:
             x,y=bij(godel_num//7)
             return pawff.AtForm(term_wff(x,num_vars_used),term_wff(y,num_vars_used))
@@ -135,8 +138,8 @@ def godel(wff:pawff.Form,num_vars_used:int=0) -> int:
         case pawff.ExistsForm:
             assert(wff.var.num==num_vars_used)
             return 7*godel(wff.form,num_vars_used+1)+6
-
-    assert(False) #Code unreachable
+        case _:
+            raise ValueError(f"Unexpected form type: {type(wff)}")
 
 if __name__=="__main__":
     for i in range(100):

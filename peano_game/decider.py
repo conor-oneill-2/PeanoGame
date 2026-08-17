@@ -1,7 +1,12 @@
 # pyright: reportAttributeAccessIssue=none
 # pyright: reportArgumentType=none
+# pyright: reportUnknownArgumentType=none
+# pyright: reportUnknownMemberType=none
+# pyright: reportUnknownVariableType=none
 
-from sympy import divisors
+
+
+from sympy import divisors  # pyright: ignore[reportMissingTypeStubs]
 
 from peano_game import pawff
 from peano_game.normal_form import first_normal_form
@@ -36,8 +41,8 @@ def decider(form:pawff.Form,nf:int=0)->Ternary:
                 first_nf=first_normal_form(form)
                 return decider(first_nf,1)
             return exists_decider(form.var,form.form)
-
-    return Ternary.UNKNOWN
+        case _:
+            raise TypeError(f"Unexpected form type: {type(form)}")
 
 #If there's no variables, just check whether LHS=RHS
 def quant_free_eval(form:pawff.AtForm)->Ternary:
@@ -177,7 +182,7 @@ def exists_forall_decider(exists_var:pawff.Var,forall_var:pawff.Var,form:pawff.F
             return Ternary.FALSE
     return Ternary.UNKNOWN
 
-def exists_multivar_decider(vars:set[pawff.Var],form:pawff.Form)->Ternary:
+def exists_multivar_decider(vars:set[pawff.Var],form:pawff.Form)->Ternary:  # pyright: ignore[reportUnusedParameter]
     if type(form)==pawff.AtForm:
         #x=F(y,z,...) is True, just by setting x to whatever the RHS evaluates to
         if type(form.term1)==pawff.Var and (form.term1 not in form.term2.vars_used()):

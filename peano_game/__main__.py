@@ -5,7 +5,7 @@ from peano_game.ternary import Ternary
 
 
 def iterate_until_unknown():
-    i=0
+    i:int=0
     while True:
         form=wff(i)
         result=decider(form)
@@ -23,5 +23,5 @@ def detailed_decider(godel_num:int):
     print(result)
     
 if __name__=="__main__":
-    detailed_decider(1392)
-    #iterate_until_unknown()
+    # detailed_decider(1392)
+    iterate_until_unknown()

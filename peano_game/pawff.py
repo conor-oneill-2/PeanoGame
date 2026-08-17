@@ -1,7 +1,11 @@
+# pyright: reportImplicitOverride=false
+# pyright: reportUnannotatedClassAttribute=false
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from typing import final
 
 
 class Term(ABC):
@@ -19,7 +23,7 @@ class Term(ABC):
         pass
 
     @abstractmethod
-    def vars_used(self) -> set:
+    def vars_used(self) -> set[Var]:
         pass
 
     @abstractmethod
@@ -27,7 +31,7 @@ class Term(ABC):
         pass
 
     @abstractmethod
-    def __call__(self,**kwargs:Term)->Term:
+    def __call__(self,**kwargs:Zero|Succ)->Term:
         pass
 
 class Var(Term):
@@ -35,33 +39,33 @@ class Var(Term):
     def __init__(self,num:int):
         assert(num>=0)
         self.num=num
-        self.vars={self}
+        self.vars:set[Var]={self}
         self.poly_cache=None
     
-    def vars_used(self) -> set:
+    def vars_used(self) -> set[Var]:
         return self.vars
-    
+
     def eval(self)->int:
         raise TypeError(f"{self} is not enumerable.")
 
     def poly(self) -> Poly:
         #Cache result
         if self.poly_cache is None:    
-            ddictpoly=defaultdict(int)
+            ddictpoly:defaultdict[frozenset[tuple[Var,int]],int]=defaultdict(int)
             ddictpoly[frozenset([(self,1)])]=1 #Key: x_0^1, Val: coefficient=1
             self.poly_cache=Poly(ddictpoly)
         return self.poly_cache
     
-    def __eq__(self,other):
+    def __eq__(self,other:object):
         if type(other)!=Var:
             return False
         return self.num==other.num
 
-    def __call__(self,**kwargs:Term)->Term:
+    def __call__(self,**kwargs:Zero|Succ)->Term:
         if str(self) in kwargs:
             return kwargs[str(self)]
         return self
-    
+
     def __hash__(self):
         return hash(str(self))
 
@@ -70,11 +74,12 @@ class Var(Term):
 
 class Zero(Term):
     def __init__(self):
-        self.vars=set()
+        self.vars:set[Var]=set()
         self.poly_cache=None
-    #Adds all vars used in subterms to result
-    #But 0 has no subterms, so passes
-    def vars_used(self) -> set:
+
+    def vars_used(self) -> set[Var]:
+        #Adds all vars used in subterms to result
+        #But 0 has no subterms, so passes
         return self.vars
     
     def poly(self) -> Poly:
@@ -97,7 +102,7 @@ class Zero(Term):
     # def __eq__(self,other):
     #     return type(other)==Zero
     
-    def __call__(self,**kwargs):
+    def __call__(self,**kwargs:Zero|Succ):
         return self
     
     # def __hash__(self):
@@ -115,7 +120,7 @@ class Succ(Term):
         self.poly_cache=None
         self.vars=None
     
-    def vars_used(self)->set:
+    def vars_used(self)->set[Var]:
         if self.vars is None:
             self.vars=self.term.vars_used()
         return self.vars
@@ -139,10 +144,10 @@ class Succ(Term):
         except TypeError:
             raise TypeError(str(self)+" is not a number.")
     
-    # This is not the same as self.val
-    # S(0+0) is simplified in val form
-    # but S(0+0)=1 in eval form
     def eval(self)->int:
+        # This is not the same as self.val
+        # S(0+0) is simplified in val form
+        # but S(0+0)=1 in eval form
         if self.eval_cache is None:
             self.eval_cache=self.term.eval()+1
         return self.eval_cache
@@ -162,7 +167,7 @@ class Succ(Term):
     #         return self.val()==other.val()
     #     return self.term==other.term
     
-    def __call__(self,**kwargs):
+    def __call__(self,**kwargs:Zero|Succ):
         return Succ(self.term(**kwargs))
     
     # def __hash__(self):
@@ -181,7 +186,7 @@ class Plus(Term):
         self.poly_cache=None
         self.vars=None
     
-    def vars_used(self) -> set:
+    def vars_used(self) -> set[Var]:
         if self.vars is None:
             self.vars=self.term1.vars_used()|self.term2.vars_used()
         return self.vars
@@ -220,7 +225,7 @@ class Plus(Term):
     #         return False
     #     return self.term1==other.term1 and self.term2==other.term2
     
-    def __call__(self,**kwargs):
+    def __call__(self,**kwargs:Zero|Succ):
         return Plus(self.term1(**kwargs),self.term2(**kwargs))
 
     def __str__(self):
@@ -232,8 +237,9 @@ class Times(Term):
         self.term2=term2
         self.eval_cache=None
         self.poly_cache=None
+        self.vars=None
     
-    def vars_used(self) -> set:
+    def vars_used(self) -> set[Var]:
         if self.vars is None:
             self.vars=self.term1.vars_used()|self.term2.vars_used()
         return self.vars
@@ -253,7 +259,7 @@ class Times(Term):
     #     # if is_num(self.term):
     #     #     return self.term1*self.term2
     #     # raise ValueError(str(self)+" is not a number.")
-    
+
     def eval(self)->int:
         if self.eval_cache is None:
             self.eval_cache=self.term1.eval()*self.term2.eval()
@@ -271,7 +277,7 @@ class Times(Term):
     #         return False
     #     return self.term1==other.term1 and self.term2==other.term2
     
-    def __call__(self,**kwargs):
+    def __call__(self,**kwargs:Zero|Succ):
         return Times(self.term1(**kwargs),self.term2(**kwargs))
     
     def __str__(self):
@@ -287,7 +293,7 @@ class Times(Term):
 class Form(ABC):
     #Given a set, add all vars used in the formula into the set
     @abstractmethod
-    def vars_used(self)->set:
+    def vars_used(self)->set[Var]:
         pass
 
 class AtForm(Form):
@@ -296,7 +302,7 @@ class AtForm(Form):
         self.term2=term2
         self.vars=None
     
-    def vars_used(self)->set:
+    def vars_used(self)->set[Var]:
         if self.vars is None:
             self.vars=self.term1.vars_used()|self.term2.vars_used()
         return self.vars
@@ -317,7 +323,7 @@ class NotForm(Form):
         self.form=form
         self.vars=None
     
-    def vars_used(self)->set:
+    def vars_used(self)->set[Var]:
         if self.vars is None:
             self.vars=self.form.vars_used()
         return self.vars
@@ -335,10 +341,13 @@ class NotForm(Form):
 
 class AndForm(Form):
     def __init__(self,*forms:Form):
-        self.forms=forms
-        self.vars=None
+        #Tuple conversion to ensure immutability
+        #and prevent annoying bugs, at a small cost to speed
+        #If you want to modify the forms (for normal form), use a new constructor
+        self.forms=tuple(forms)
+        self.vars:None|set[Var]=None
 
-    def vars_used(self)->set:
+    def vars_used(self)->set[Var]:
         if self.vars is None:
             self.vars=set()
             for form in self.forms:
@@ -358,10 +367,10 @@ class AndForm(Form):
         
 class OrForm(Form):
     def __init__(self,*forms:Form):
-        self.forms=forms
-        self.vars=None
+        self.forms=tuple(forms)
+        self.vars:None|set[Var]=None
 
-    def vars_used(self)->set:
+    def vars_used(self)->set[Var]:
         if self.vars is None:
             self.vars=set()
             for form in self.forms:
@@ -385,7 +394,7 @@ class ImpliesForm(Form):
         self.form2=form2
         self.vars=None
 
-    def vars_used(self)->set:
+    def vars_used(self)->set[Var]:
         if self.vars is None:
             self.vars=self.form1.vars_used()|self.form2.vars_used()
         return self.vars
@@ -410,7 +419,7 @@ class ForAllForm(Form):
     #vars_used is used to determine if ForAllForm(x,F)/ExistsForm(x,F)
     #can be reduced to F due to no dependence on x
     #As such, the variable x should not be counted as a used variable
-    def vars_used(self)->set:
+    def vars_used(self)->set[Var]:
         if self.vars is None:
             self.vars=self.form.vars_used()
         return self.vars
@@ -437,7 +446,7 @@ class ExistsForm(Form):
     #vars_used is used to determine if ForAllForm(x,F)/ExistsForm(x,F)
     #can be reduced to F due to no dependence on x
     #As such, the variable x should not be counted as a used variable
-    def vars_used(self)->set:
+    def vars_used(self)->set[Var]:
         if self.vars is None:
             self.vars=self.form.vars_used()
         return self.vars
@@ -475,11 +484,14 @@ def dictsum(d1:frozenset[tuple[Var,int]],d2:frozenset[tuple[Var,int]])->frozense
         result.add((k,v+val))
     return frozenset(result)
 
+@final
 class Poly:
     def __init__(self,poly:defaultdict[frozenset[tuple[Var,int]],int]):
         self.poly=poly
         
-    def __eq__(self,other):
+    def __eq__(self,other:object) -> bool:
+        if type(other)!=Poly:
+            return False
         return self.poly==other.poly
 
     def __add__(self,other:int|Poly)->Poly:
@@ -500,7 +512,7 @@ class Poly:
                 poly[k]*=other
             return Poly(poly)
         assert(type(other)==Poly)
-        poly=defaultdict(int)
+        poly:defaultdict[frozenset[tuple[Var,int]],int]=defaultdict(int)
         for k1,v1 in self.poly.items():
             for k2,v2 in other.poly.items():
                 poly[dictsum(k1,k2)]+=v1*v2
