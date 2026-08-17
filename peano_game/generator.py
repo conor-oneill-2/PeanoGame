@@ -1,9 +1,5 @@
-# pyright: reportAttributeAccessIssue=none
-# pyright: reportUnknownMemberType=none
-# pyright: reportUnknownVariableType=none
-# pyright: reportUnknownArgumentType=none
-
 from math import isqrt
+from typing import cast
 
 from peano_game import pawff
 
@@ -55,18 +51,24 @@ def godel_term(wff:pawff.Term,num_vars_used:int) -> int:
         case pawff.Zero:
             return 0
         case pawff.Var:
+            wff=cast(pawff.Var, wff)
             assert(wff.num<num_vars_used)
             return wff.num+1
         case pawff.Succ:
+            wff=cast(pawff.Succ, wff)
             sub=godel_term(wff.term,num_vars_used)
             return 3*sub+num_vars_used+1
         case pawff.Plus:
-            sub1=godel_term(wff.term1,num_vars_used)
-            sub2=godel_term(wff.term2,num_vars_used)
+            wff=cast(pawff.Plus, wff)
+            assert(len(wff.terms)==2)
+            sub1=godel_term(wff.terms[0],num_vars_used)
+            sub2=godel_term(wff.terms[1],num_vars_used)
             return 3*bij_inv(sub1,sub2)+num_vars_used+2
         case pawff.Times:
-            sub1=godel_term(wff.term1,num_vars_used)
-            sub2=godel_term(wff.term2,num_vars_used)
+            wff=cast(pawff.Times, wff)
+            assert(len(wff.terms)==2)
+            sub1=godel_term(wff.terms[0],num_vars_used)
+            sub2=godel_term(wff.terms[1],num_vars_used)
             return 3*bij_inv(sub1,sub2)+num_vars_used+3
         case _:
             raise ValueError(f"Unexpected term type: {type(wff)}")
@@ -105,14 +107,17 @@ def wff(godel_num:int,num_vars_used:int=0) -> pawff.Form:
 def godel(wff:pawff.Form,num_vars_used:int=0) -> int:
     match type(wff):
         case pawff.AtForm:
+            wff=cast(pawff.AtForm, wff)
             k=bij_inv(
                 godel_term(wff.term1,num_vars_used),
                 godel_term(wff.term2,num_vars_used)
             )
             return 7*k
         case pawff.NotForm:
+            wff=cast(pawff.NotForm, wff)
             return 7*godel(wff.form,num_vars_used)+1
         case pawff.AndForm:
+            wff=cast(pawff.AndForm, wff)
             assert(len(wff.forms)==2)
             k=bij_inv(
                 godel(wff.forms[0],num_vars_used),
@@ -120,6 +125,7 @@ def godel(wff:pawff.Form,num_vars_used:int=0) -> int:
             )
             return 7*k+2
         case pawff.OrForm:
+            wff=cast(pawff.OrForm, wff)
             assert(len(wff.forms)==2)
             k=bij_inv(
                 godel(wff.forms[0],num_vars_used),
@@ -127,15 +133,18 @@ def godel(wff:pawff.Form,num_vars_used:int=0) -> int:
             )
             return 7*k+3
         case pawff.ImpliesForm:
+            wff=cast(pawff.ImpliesForm, wff)
             k=bij_inv(
                 godel(wff.form1,num_vars_used),
                 godel(wff.form2,num_vars_used)
             )
             return 7*k+4
         case pawff.ForAllForm:
+            wff=cast(pawff.ForAllForm, wff)
             assert(wff.var.num==num_vars_used)
             return 7*godel(wff.form,num_vars_used+1)+5
         case pawff.ExistsForm:
+            wff=cast(pawff.ExistsForm, wff)
             assert(wff.var.num==num_vars_used)
             return 7*godel(wff.form,num_vars_used+1)+6
         case _:

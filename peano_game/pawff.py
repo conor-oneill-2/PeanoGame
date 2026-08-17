@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import final
+from math import prod
 
 
 class Term(ABC):
@@ -179,16 +179,17 @@ class Succ(Term):
         return "S("+str(self.term)+")"
 
 class Plus(Term):
-    def __init__(self,term1:Term,term2:Term):
-        self.term1=term1
-        self.term2=term2
+    def __init__(self,*terms:Term):
+        self.terms=terms
         self.eval_cache=None
         self.poly_cache=None
-        self.vars=None
+        self.vars:None|set[Var]=None
     
     def vars_used(self) -> set[Var]:
         if self.vars is None:
-            self.vars=self.term1.vars_used()|self.term2.vars_used()
+            self.vars=set()
+            for term in self.terms:
+                self.vars|=term.vars_used()
         return self.vars
     
     # def can_eval(self):
@@ -210,14 +211,14 @@ class Plus(Term):
     
     def eval(self)->int:
         if self.eval_cache is None:
-            self.eval_cache=self.term1.eval()+self.term2.eval()
+            self.eval_cache=sum(term.eval() for term in self.terms)
         return self.eval_cache
     
     def poly(self) -> Poly:
         if self.poly_cache is None:
-            left_poly=self.term1.poly()
-            right_poly=self.term2.poly()
-            self.poly_cache=left_poly+right_poly
+            self.poly_cache=Poly(defaultdict(int))
+            for term in self.terms:
+                self.poly_cache+=term.poly()
         return self.poly_cache
 
     # def __eq__(self,other):
@@ -226,22 +227,23 @@ class Plus(Term):
     #     return self.term1==other.term1 and self.term2==other.term2
     
     def __call__(self,**kwargs:Zero|Succ):
-        return Plus(self.term1(**kwargs),self.term2(**kwargs))
+        return Plus(*(term(**kwargs) for term in self.terms))
 
     def __str__(self):
-        return str(self.term1)+"+"+str(self.term2)
+        return "+".join(f"({term})" for term in self.terms)
 
 class Times(Term):
-    def __init__(self,term1:Term,term2:Term):
-        self.term1=term1
-        self.term2=term2
+    def __init__(self,*terms:Term):
+        self.terms=terms
         self.eval_cache=None
         self.poly_cache=None
-        self.vars=None
+        self.vars:None|set[Var]=None
     
     def vars_used(self) -> set[Var]:
         if self.vars is None:
-            self.vars=self.term1.vars_used()|self.term2.vars_used()
+            self.vars=set()
+            for term in self.terms:
+                self.vars|=term.vars_used()
         return self.vars
     
     # def can_eval(self):
@@ -262,14 +264,16 @@ class Times(Term):
 
     def eval(self)->int:
         if self.eval_cache is None:
-            self.eval_cache=self.term1.eval()*self.term2.eval()
+            self.eval_cache=prod(term.eval() for term in self.terms)
         return self.eval_cache
 
     def poly(self)->Poly:
         if self.poly_cache is None:
-            leftpoly=self.term1.poly()
-            rightpoly=self.term2.poly()
-            self.poly_cache=leftpoly*rightpoly
+            poly_ddict:defaultdict[frozenset[tuple[Var,int]],int]=defaultdict(int)
+            poly_ddict[frozenset()]=succ_form(1)
+            self.poly_cache=Poly(poly_ddict)
+            for term in self.terms:
+                self.poly_cache*=term.poly()
         return self.poly_cache
     
     # def __eq__(self,other):
@@ -278,16 +282,10 @@ class Times(Term):
     #     return self.term1==other.term1 and self.term2==other.term2
     
     def __call__(self,**kwargs:Zero|Succ):
-        return Times(self.term1(**kwargs),self.term2(**kwargs))
+        return Times(*(term(**kwargs) for term in self.terms))
     
     def __str__(self):
-        t1str=str(self.term1)
-        if type(self.term1)==Plus:
-            t1str="("+t1str+")"
-        t2str=str(self.term2)
-        if type(self.term2)==Plus:
-            t2str="("+t2str+")"
-        return t1str+"*"+t2str
+        return "*".join(f"({term})" for term in self.terms)
 
 
 class Form(ABC):
@@ -484,7 +482,6 @@ def dictsum(d1:frozenset[tuple[Var,int]],d2:frozenset[tuple[Var,int]])->frozense
         result.add((k,v+val))
     return frozenset(result)
 
-@final
 class Poly:
     def __init__(self,poly:defaultdict[frozenset[tuple[Var,int]],int]):
         self.poly=poly

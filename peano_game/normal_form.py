@@ -1,7 +1,4 @@
-# pyright: reportAttributeAccessIssue=none
-# pyright: reportUnknownArgumentType=false
-# pyright: reportUnknownMemberType=false
-# pyright: reportUnknownVariableType=none
+from typing import cast
 
 from peano_game import pawff
 
@@ -19,56 +16,63 @@ def first_tnf(term:pawff.Term)->pawff.Term:
         case pawff.Zero | pawff.Var:
             return term
         case pawff.Succ:
+            term=cast(pawff.Succ, term)
             return pawff.Succ(first_tnf(term.term))
         case pawff.Plus:
-            t1=first_tnf(term.term1)
-            t2=first_tnf(term.term2)
+            term=cast(pawff.Plus, term)
+            terms=[first_tnf(term) for term in term.terms]
             
             #S(x)+y -> S(x+y), and x+S(y)->S(x+y)
             numsuccs=0
-            while type(t1)==pawff.Succ:
-                t1=t1.term
-                numsuccs+=1
-            while type(t2)==pawff.Succ:
-                t2=t2.term
-                numsuccs+=1
+            for i, term in enumerate(terms):
+                final_term=term
+                while type(final_term)==pawff.Succ:
+                    final_term=final_term.term
+                    numsuccs+=1
+
+                terms[i]=final_term
             
             #x+0 -> x, and 0+x -> x
-            if type(t1)==pawff.Zero:
-                result=t2
-            if type(t2)==pawff.Zero:
-                result=t1
+            terms=list(filter(lambda t: type(t)!=pawff.Zero, terms))
+            if len(terms)==0:
+                result=pawff.Zero()
+            elif len(terms)==1:
+                result=terms[0]
             else:
-                result=pawff.Plus(t1,t2)
+                result=pawff.Plus(*terms)
             
             for _ in range(numsuccs):
                 result=pawff.Succ(result)
             return result
         case pawff.Times:
-            t1=first_tnf(term.term1)
-            t2=first_tnf(term.term2)
+            term=cast(pawff.Times, term)
+            terms=[first_tnf(term) for term in term.terms]
             
-            #0*x -> 0, and x*0 -> 0
-            if type(t1)==pawff.Zero:
-                return t1
-            if type(t2)==pawff.Zero:
-                return t2
-            
+            #0*x -> 0
+            if any(type(t)==pawff.Zero for t in terms):
+                return pawff.Zero()
+
             #1*x -> x, and x*1 -> x
-            if type(t1)==pawff.Succ:  # noqa: SIM102
-                if type(t1.term)==pawff.Zero:
-                    return t2
-            if type(t2)==pawff.Succ:  # noqa: SIM102
-                if type(t2.term)==pawff.Zero:
-                    return t1
-            
-            return pawff.Times(t1,t2)
+            terms=list(filter(lambda t: eq_one(t),terms))
+            if len(terms)==0:
+                return pawff.Succ(pawff.Zero())
+            if len(terms)==1:
+                return terms[0]
+            else:
+                return pawff.Times(*terms)
         case _:
             raise ValueError(f"Unexpected term type: {type(term)}")
+
+
+def eq_one(term:pawff.Term) -> bool:
+    if type(term)==pawff.Succ:
+        return type(term.term)==pawff.Zero
+    return False
 
 def first_normal_form(form:pawff.Form,recursive:bool=True) -> pawff.Form:
     match type(form):
         case pawff.AtForm:
+            form=cast(pawff.AtForm, form)
             if recursive:
                 t1=first_tnf(form.term1)
                 t2=first_tnf(form.term2)
@@ -81,6 +85,7 @@ def first_normal_form(form:pawff.Form,recursive:bool=True) -> pawff.Form:
                 t2=t2.term
             return pawff.AtForm(t1,t2)
         case pawff.NotForm:
+            form=cast(pawff.NotForm, form)
             if recursive:
                 inner=first_normal_form(form.form,recursive)
             else:
@@ -90,30 +95,36 @@ def first_normal_form(form:pawff.Form,recursive:bool=True) -> pawff.Form:
                 return inner.form
             return pawff.NotForm(inner)
         case pawff.AndForm:
+            form=cast(pawff.AndForm, form)
             if recursive:
                 inner_forms=[first_normal_form(iform) for iform in form.forms]
             else:
                 inner_forms=form.forms
             #De Morgans Law: ~F & ~G => ~ (F|G)
             if all(type(iform)==pawff.NotForm for iform in inner_forms):
+                inner_forms=cast(list[pawff.NotForm], inner_forms)
                 return pawff.NotForm(pawff.OrForm(*(iform.form for iform in inner_forms)))
             return pawff.AndForm(*inner_forms)
         case pawff.OrForm:
+            form=cast(pawff.OrForm, form)
             if recursive:
                 inner_forms=[first_normal_form(iform) for iform in form.forms]
             else:
                 inner_forms=form.forms
             #De Morgans Law: ~F | ~G => ~ (F&G)
             if all(type(iform)==pawff.NotForm for iform in inner_forms):
+                inner_forms=cast(list[pawff.NotForm], inner_forms)
                 return pawff.NotForm(pawff.AndForm(*(iform.form for iform in inner_forms)))
             return pawff.OrForm(*inner_forms)
         case pawff.ImpliesForm:
+            form=cast(pawff.ImpliesForm, form)
             #(F->G) => ~F | G
             return first_normal_form(pawff.OrForm(
                 pawff.NotForm(form.form1),
                 form.form2
             ))
         case pawff.ForAllForm:
+            form=cast(pawff.ForAllForm, form)
             if recursive:
                 inner=first_normal_form(form.form,recursive)
             else:
@@ -139,6 +150,7 @@ def first_normal_form(form:pawff.Form,recursive:bool=True) -> pawff.Form:
             
             return pawff.ForAllForm(form.var,inner)
         case pawff.ExistsForm:
+            form=cast(pawff.ExistsForm, form)
             if recursive:
                 inner=first_normal_form(form.form)
             else:

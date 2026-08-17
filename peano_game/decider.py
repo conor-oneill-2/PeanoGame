@@ -1,12 +1,8 @@
-# pyright: reportAttributeAccessIssue=none
-# pyright: reportArgumentType=none
-# pyright: reportUnknownArgumentType=none
-# pyright: reportUnknownMemberType=none
-# pyright: reportUnknownVariableType=none
+from typing import cast
 
-
-
-from sympy import divisors  # pyright: ignore[reportMissingTypeStubs]
+from sympy import (  # pyright: ignore[reportMissingTypeStubs]
+    divisors,  # pyright: ignore[reportUnknownVariableType]
+)
 
 from peano_game import pawff
 from peano_game.normal_form import first_normal_form
@@ -16,27 +12,34 @@ from peano_game.ternary import Ternary
 def decider(form:pawff.Form,nf:int=0)->Ternary:
     match type(form):
         case pawff.AtForm:
+            form=cast(pawff.AtForm, form)
             return quant_free_eval(form)
         case pawff.NotForm:
+            form=cast(pawff.NotForm, form)
             return ~decider(form.form,nf)
         case pawff.AndForm:
+            form=cast(pawff.AndForm, form)
             result=Ternary.TRUE
             for iform in form.forms:
                 result&=decider(iform,nf)
             return result
         case pawff.OrForm:
+            form=cast(pawff.OrForm, form)
             result=Ternary.FALSE
             for iform in form.forms:
                 result|=decider(iform,nf)
             return result
         case pawff.ImpliesForm:
+            form=cast(pawff.ImpliesForm, form)
             return (~decider(form.form1,nf))|decider(form.form2,nf)
         case pawff.ForAllForm:
+            form=cast(pawff.ForAllForm, form)
             if nf==0:
                 first_nf=first_normal_form(form)
                 return decider(first_nf,1)
             return for_all_decider(form.var,form.form)
         case pawff.ExistsForm:
+            form=cast(pawff.ExistsForm, form)
             if nf==0:
                 first_nf=first_normal_form(form)
                 return decider(first_nf,1)
@@ -135,7 +138,8 @@ def rational_roots_decider(var:pawff.Var,term1:pawff.Term,term2:pawff.Term)->Ter
     #x=0, or x divides |f(0)|
     if diff==0:
         return Ternary.TRUE
-    divisors_list=divisors(diff)
+    divisors_list=divisors(diff)  # pyright: ignore[reportUnknownVariableType]
+    divisors_list=cast(list[int], divisors_list)
     for divisor in divisors_list:
         t1_val=term1(**{str(var):pawff.succ_form(divisor)}).eval()
         t2_val=term2(**{str(var):pawff.succ_form(divisor)}).eval()
