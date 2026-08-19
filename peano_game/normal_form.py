@@ -160,7 +160,7 @@ def first_normal_form(form:pawff.Form,recursive:bool=True) -> pawff.Form:
             #ForAll(x,F) => F, if F does not depend on x
             if form.var not in inner.vars_used():
                 return inner
-
+            
             #ForAll(x,~F) => ~Exists(x,F)
             if type(inner)==pawff.NotForm:
                 #Do not recurse, as recursion would be redundant (inner already in 1NF)
