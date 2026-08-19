@@ -8,9 +8,10 @@ from peano_game import pawff
 #  x+0 -> x, and 0+x -> x
 #  0*x -> 0, and x*0 -> 0
 #  1*x -> x, and x*1 -> x
+#  Associativity of addition/multiplication
 #It does not include any theorems that uses the distributive law
-#or commutativity/associativity of addition/multiplications
-#This will be solved in second_tnf
+#or commutativity of addition/multiplications
+#This will be solved in future
 def first_tnf(term:pawff.Term)->pawff.Term:
     match type(term):
         case pawff.Zero | pawff.Var:
@@ -21,7 +22,7 @@ def first_tnf(term:pawff.Term)->pawff.Term:
         case pawff.Plus:
             term=cast(pawff.Plus, term)
             terms=[first_tnf(term) for term in term.terms]
-            
+
             #S(x)+y -> S(x+y), and x+S(y)->S(x+y)
             numsuccs=0
             for i, term in enumerate(terms):
@@ -31,29 +32,55 @@ def first_tnf(term:pawff.Term)->pawff.Term:
                     numsuccs+=1
 
                 terms[i]=final_term
-            
+
             #x+0 -> x, and 0+x -> x
             terms=list(filter(lambda t: type(t)!=pawff.Zero, terms))
+
+            #x+(y+z) -> x+y+z
+            i=0
+            lenterms=len(terms)
+            while i<lenterms:
+                current_term=terms[i]
+                if isinstance(current_term, pawff.Plus):
+                    terms.extend(current_term.terms)
+                    del terms[i]
+                    lenterms-=1
+                else:
+                    i+=1
+
             if len(terms)==0:
                 result=pawff.Zero()
             elif len(terms)==1:
                 result=terms[0]
             else:
                 result=pawff.Plus(*terms)
-            
+
             for _ in range(numsuccs):
                 result=pawff.Succ(result)
             return result
         case pawff.Times:
             term=cast(pawff.Times, term)
             terms=[first_tnf(term) for term in term.terms]
-            
+
             #0*x -> 0
             if any(type(t)==pawff.Zero for t in terms):
                 return pawff.Zero()
 
             #1*x -> x, and x*1 -> x
             terms=list(filter(lambda t: eq_one(t),terms))
+
+            #x*(y*z) -> x*y*z
+            i=0
+            lenterms=len(terms)
+            while i<lenterms:
+                current_term=terms[i]
+                if isinstance(current_term, pawff.Times):
+                    terms.extend(current_term.terms)
+                    del terms[i]
+                    lenterms-=1
+                else:
+                    i+=1
+
             if len(terms)==0:
                 return pawff.Succ(pawff.Zero())
             if len(terms)==1:
@@ -133,7 +160,7 @@ def first_normal_form(form:pawff.Form,recursive:bool=True) -> pawff.Form:
             #ForAll(x,F) => F, if F does not depend on x
             if form.var not in inner.vars_used():
                 return inner
-            
+
             #ForAll(x,~F) => ~Exists(x,F)
             if type(inner)==pawff.NotForm:
                 #Do not recurse, as recursion would be redundant (inner already in 1NF)
@@ -141,13 +168,13 @@ def first_normal_form(form:pawff.Form,recursive:bool=True) -> pawff.Form:
                     pawff.ExistsForm(form.var,inner.form),
                     False
                 ))
-            
+
             #ForAll(x,F&G) => ForAll(x,F)&ForAll(x,G)
             if type(inner)==pawff.AndForm:
                 return pawff.AndForm(
                     *(first_normal_form(pawff.ForAllForm(form.var,iform),False) for iform in inner.forms)
                 )
-            
+
             return pawff.ForAllForm(form.var,inner)
         case pawff.ExistsForm:
             form=cast(pawff.ExistsForm, form)
@@ -159,7 +186,7 @@ def first_normal_form(form:pawff.Form,recursive:bool=True) -> pawff.Form:
             #Exists(x,F) => F, if F does not depend on x
             if form.var not in inner.vars_used():
                 return inner
-            
+
             #Exists(x,~F) => ~ForAll(x,F)
             if type(inner)==pawff.NotForm:
                 #Do not recurse, as recursion would be redundant (inner already in 1NF)
