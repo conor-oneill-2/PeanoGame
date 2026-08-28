@@ -95,6 +95,16 @@ def forall_exists_decider(forall_var:pawff.Var,exists_var:pawff.Var,form:pawff.F
             return Ternary.FALSE
         if type(form.term2)==pawff.Succ and form.term1==forall_var:
             return Ternary.FALSE
+
+        #If expression is of type F(e_var)+G(fa_var)=C, then result is False
+        #because G(fa_var) can get arbitrarily large, F(e_var) has to get arbitrarily negative
+        #but F(e_var) is >= 0, so this is impossible
+        if type(form.term1)==pawff.Plus and not form.term2.vars_used():  # noqa: SIM102
+            if all(len(term.vars_used())<=1 for term in form.term1.terms):
+                return Ternary.FALSE
+        if type(form.term2)==pawff.Plus and not form.term1.vars_used():  # noqa: SIM102
+            if all(len(term.vars_used())<=1 for term in form.term2.terms):
+                return Ternary.FALSE
     return Ternary.UNKNOWN
 
 def exists_decider(var:pawff.Var,form:pawff.Form)->Ternary:
@@ -142,15 +152,32 @@ def exists_forall_decider(exists_var:pawff.Var,forall_var:pawff.Var,form:pawff.F
             return Ternary.FALSE
         if form.term1.vars_used()=={forall_var} or form.term2.vars_used()=={exists_var}:
             return Ternary.FALSE
+        #Similarly, F(x)+G(y)+C=H(x) is impossible since G(y) varies, but H(x)-C1-F(x) is fixed
+        if type(form.term1)==pawff.Plus and forall_var not in form.term2.vars_used():  # noqa: SIM102
+            #len(term.vars_used())<=1 means it can use exists_var or forall_var but not both
+            if all(len(term.vars_used())<=1 for term in form.term1.terms):
+                return Ternary.FALSE
+        if type(form.term2)==pawff.Plus and forall_var not in form.term1.vars_used():  # noqa: SIM102
+            if all(len(term.vars_used())<=1 for term in form.term2.terms):
+                return Ternary.FALSE
     return Ternary.UNKNOWN
 
-def exists_multivar_decider(vars:set[pawff.Var],form:pawff.Form)->Ternary:  # pyright: ignore[reportUnusedParameter]
+def exists_multivar_decider(vars:set[pawff.Var],form:pawff.Form)->Ternary:
     if type(form)==pawff.AtForm:
         #x=F(y,z,...) is True, just by setting x to whatever the RHS evaluates to
         if type(form.term1)==pawff.Var and (form.term1 not in form.term2.vars_used()):
                return Ternary.TRUE
         if type(form.term2)==pawff.Var and (form.term2 not in form.term1.vars_used()):
                 return Ternary.TRUE
+
+        #If you have F(x,y,...)=0, then given F(x,y,...) is non-negative and non-decreasing in all its variables
+        #it is true only if F(0,0,...)=0
+        if type(form.term1)==pawff.Zero:
+            call_vals={str(var):pawff.Zero() for var in vars}
+            return Ternary.TRUE if form.term2.eval(**call_vals)==0 else Ternary.FALSE
+        if type(form.term2)==pawff.Zero:
+            call_vals={str(var):pawff.Zero() for var in vars}
+            return Ternary.TRUE if form.term1(**call_vals).eval()==0 else Ternary.FALSE
     return Ternary.UNKNOWN
 
 def set_decider(set_expr: natset.SetExpr) -> natset.NatSet:
