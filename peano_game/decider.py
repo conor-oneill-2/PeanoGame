@@ -5,7 +5,6 @@ from sympy import (  # pyright: ignore[reportMissingTypeStubs]
 )
 
 from peano_game import pawff
-from peano_game.normal_form import first_normal_form
 from peano_game.ternary import Ternary
 
 
@@ -35,13 +34,13 @@ def decider(form:pawff.Form,nf:int=0)->Ternary:
         case pawff.ForAllForm:
             form=cast(pawff.ForAllForm, form)
             if nf==0:
-                first_nf=first_normal_form(form)
+                first_nf=form.simplify()
                 return decider(first_nf,1)
             return for_all_decider(form.var,form.form)
         case pawff.ExistsForm:
             form=cast(pawff.ExistsForm, form)
             if nf==0:
-                first_nf=first_normal_form(form)
+                first_nf=form.simplify()
                 return decider(first_nf,1)
             return exists_decider(form.var,form.form)
         case _:

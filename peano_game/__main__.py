@@ -1,6 +1,5 @@
 from peano_game.decider import decider
 from peano_game.generator import wff
-from peano_game.normal_form import first_normal_form
 from peano_game.ternary import Ternary
 
 
@@ -17,11 +16,11 @@ def iterate_until_unknown():
 def detailed_decider(godel_num:int):
     form=wff(godel_num)
     print(form)
-    fnf=first_normal_form(form)
-    print(fnf)
-    result=decider(form)
+    simplified=form.simplify()
+    print(simplified)
+    result=decider(form) #Unsimplified - decider will simplify if necessary
     print(result)
     
 if __name__=="__main__":
-    # detailed_decider(1392)
-    iterate_until_unknown()
+    detailed_decider(110)
+    #iterate_until_unknown()
