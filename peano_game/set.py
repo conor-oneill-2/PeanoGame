@@ -36,6 +36,11 @@ class NatSet(ABC):
     def is_full(self)->Ternary:
         pass
 
+    @abstractmethod
+    def complement(self)->"NatSet":
+        pass
+    
+
 class FiniteNatSet(NatSet):
     def __init__(self, items:set[int]):
         self._items = items
@@ -53,6 +58,9 @@ class FiniteNatSet(NatSet):
 
     def is_full(self)->Ternary:
         return Ternary.FALSE
+
+    def complement(self)->NatSet:
+        return FiniteComplementSet(self._items)
 
     def get_items(self)->set[int]:
         return self._items
@@ -73,6 +81,9 @@ class EmptySet(FiniteNatSet):
 
     def is_empty(self)->Ternary:
         return Ternary.TRUE
+
+    def complement(self)->NatSet:
+        return FullSet()
 
     def __repr__(self)->str:
         return "EmptySet()"
@@ -95,7 +106,10 @@ class FiniteComplementSet(NatSet):
     def is_full(self)->Ternary:
         return Ternary.TRUE if not self._items else Ternary.FALSE
 
-    def get_items(self)->set[int]:
+    def complement(self)->NatSet:
+        return FiniteNatSet(self._items)
+
+    def get_comp_items(self)->set[int]:
         return self._items
 
     def __repr__(self)->str:
@@ -111,6 +125,9 @@ class FullSet(FiniteComplementSet):
 
     def simplify(self)->NatSet:
         return self
+
+    def complement(self)->NatSet:
+        return EmptySet()    
 
     def __repr__(self)->str:
         return "FullSet()"
@@ -129,6 +146,8 @@ class IntersectionSet(NatSet):
             return self._sets[0].simplify()
 
         simp_sets = {s.simplify() for s in self._sets}
+        if any(type(s)==UnknownSet for s in simp_sets):
+            return UnknownSet()
 
         finite_set = next((s for s in simp_sets if isinstance(s, FiniteNatSet)), None)
         if finite_set:
@@ -153,6 +172,9 @@ class IntersectionSet(NatSet):
                 break
         return res
 
+    def complement(self)->NatSet:
+        return UnionSet(*[s.complement() for s in self._sets])
+
     def __repr__(self)->str:
         return f"IntersectionSet({self._sets})"
 
@@ -170,10 +192,12 @@ class UnionSet(NatSet):
             return self._sets[0].simplify()
 
         simp_sets = {s.simplify() for s in self._sets}
+        if any(type(s)==UnknownSet for s in simp_sets):
+            return UnknownSet()
 
         finite_comp_set = next((s for s in simp_sets if isinstance(s, FiniteComplementSet)), None)
         if finite_comp_set:
-            set_nums = finite_comp_set.get_items()
+            set_nums = finite_comp_set.get_comp_items()
             all_non_matching_nums:set[int]=set()
             for num in set_nums:
                 if all(num not in s for s in self._sets):
@@ -194,6 +218,9 @@ class UnionSet(NatSet):
     def is_full(self)->Ternary:
         return Ternary.UNKNOWN
 
+    def complement(self)->NatSet:
+        return IntersectionSet(*[s.complement() for s in self._sets])
+
     def __repr__(self)->str:
         return f"UnionSet({self._sets})"
 
@@ -213,8 +240,17 @@ class UnknownSet(NatSet):
     def is_full(self)->Ternary:
         return Ternary.UNKNOWN
 
+    def complement(self)->NatSet:
+        return UnknownSet()
+
     def __eq__(self, other:object) -> bool:
         return isinstance(other, UnknownSet)
 
     def __repr__(self)->str:
         return "UnknownSet()"
+
+def intersection(*sets:NatSet)->NatSet:
+    return IntersectionSet(*sets).simplify()
+
+def union(*sets:NatSet)->NatSet:
+    return UnionSet(*sets).simplify()

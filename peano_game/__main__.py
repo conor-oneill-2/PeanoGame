@@ -16,7 +16,6 @@ def iterate_until_unknown():
             break
         i+=1
 
-
 def set_iterate_until_unknown():
     i:int=0
     while True:
@@ -34,7 +33,13 @@ def detailed_decider(godel_num:int):
     print(simplified)
     result=decider(form) #Unsimplified - decider will simplify if necessary
     print(result)
+
+def set_detailed_decider(godel_num:int):
+    form=set_wff(godel_num)
+    print(form)
+    result=set_decider(form)
+    print(result)
     
 if __name__=="__main__":
-    # detailed_decider(110)
+    # set_detailed_decider(196)
     set_iterate_until_unknown()

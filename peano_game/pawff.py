@@ -43,6 +43,10 @@ class Term(ABC):
     def __call__(self,**kwargs:Zero|Succ)->Term:
         pass
 
+    @abstractmethod
+    def __eq__(self,other:object)->bool:
+        pass
+
 class Var(Term):
     #Vars are indexed as x_0, x_1, etc.
     def __init__(self,num:int):
@@ -117,8 +121,8 @@ class Zero(Term):
     def eval(self):
         return 0
 
-    # def __eq__(self,other):
-    #     return type(other)==Zero
+    def __eq__(self,other:object)->bool:
+        return type(other)==Zero
 
     def __call__(self,**kwargs:Zero|Succ):
         return self
@@ -182,14 +186,10 @@ class Succ(Term):
     def is_simplified(self) -> bool:
         return self._is_simplified
 
-    # def __eq__(self,other):
-    #     if type(other)!=Succ:
-    #         return False
-    #     if self.val_cache!=None:
-    #         if not other.is_num():
-    #             return False
-    #         return self.val()==other.val()
-    #     return self.term==other.term
+    def __eq__(self,other:object)->bool:
+        if type(other)!=Succ:
+            return False
+        return self.term==other.term
 
     def __call__(self,**kwargs:Zero|Succ):
         return Succ(self.term(**kwargs))
@@ -243,10 +243,13 @@ class Plus(Term):
                 self.poly_cache+=term.poly()
         return self.poly_cache
 
-    # def __eq__(self,other):
-    #     if type(other)!=Plus:
-    #         return False
-    #     return self.term1==other.term1 and self.term2==other.term2
+    #Note: x+y!=y+x
+    def __eq__(self,other:object)->bool:
+        if type(other)!=Plus:
+            return False
+        if len(self.terms)!=len(other.terms):
+            return False
+        return all(sterm==oterm for sterm,oterm in zip(self.terms,other.terms))
 
     def is_simplified(self) -> bool:
         return self._is_simplified
@@ -366,10 +369,13 @@ class Times(Term):
             result._is_simplified=True
             return result
 
-    # def __eq__(self,other):
-    #     if type(other)!=Times:
-    #         return False
-    #     return self.term1==other.term1 and self.term2==other.term2
+    #Note: x*y!=y*x
+    def __eq__(self,other:object)->bool:
+        if type(other)!=Times:
+            return False
+        if len(self.terms)!=len(other.terms):
+            return False
+        return all(sterm==oterm for sterm,oterm in zip(self.terms,other.terms))
 
     def __call__(self,**kwargs:Zero|Succ):
         return Times(*(term(**kwargs) for term in self.terms))
