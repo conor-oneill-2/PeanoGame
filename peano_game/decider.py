@@ -4,7 +4,7 @@ from sympy import (  # pyright: ignore[reportMissingTypeStubs]
     divisors,  # pyright: ignore[reportUnknownVariableType]
 )
 
-from peano_game import pawff
+from peano_game import natset, pawff
 from peano_game.ternary import Ternary
 
 
@@ -147,33 +147,37 @@ def rational_roots_decider(var:pawff.Var,term1:pawff.Term,term2:pawff.Term)->Ter
     return Ternary.FALSE
 
 def exists_and_decider(var:pawff.Var,*forms:pawff.Form)->Ternary:
-    #IMPORTANT: Exists(x,F&G) is NOT equivalent to Exists(x,F)&Exists(x,G)
-    #But if Exists(x,F) is False, then Exists(x,F&G) is False
-    #and if Exists(x,G) is False, then Exists(x,F&G) is False
-    iforms=(pawff.ExistsForm(var,iform) for iform in forms)
-    iforms_dec=tuple(decider(iform) for iform in iforms)
-    if any(iform_dec==Ternary.FALSE for iform_dec in iforms_dec):
-        return Ternary.FALSE
+    set_exprs=(natset.SetExpr(var,iform) for iform in forms)
+    set_exprs_dec=tuple(set_decider(set_expr) for set_expr in set_exprs)
+    union_set=natset.union(*set_exprs_dec)
+    return ~union_set.is_empty()
+    # #IMPORTANT: Exists(x,F&G) is NOT equivalent to Exists(x,F)&Exists(x,G)
+    # #But if Exists(x,F) is False, then Exists(x,F&G) is False
+    # #and if Exists(x,G) is False, then Exists(x,F&G) is False
+    # iforms=(pawff.ExistsForm(var,iform) for iform in forms)
+    # iforms_dec=tuple(decider(iform) for iform in iforms)
+    # if any(iform_dec==Ternary.FALSE for iform_dec in iforms_dec):
+    #     return Ternary.FALSE
 
-    #If And(ForAll(x,F),Exists(x,G)) is True, then Exists(x,F&G) is True
-    #since there is at least one x for which G(x) is True, and F(x) is True for all x
-    #By the same logic, if you have Exists(x,F)&ForAll(x,G)&ForAll(x,H), then Exists(x,F&G&H) is True
-    altforms=(pawff.ForAllForm(var,iform) for iform in forms)
-    altforms_dec=tuple(decider(altform) for altform in altforms)
-    for j,iform_dec in enumerate(iforms_dec):
-        result=Ternary.TRUE
-        for i, altform_dec in enumerate(altforms_dec):
-            if i==j:
-                check_val=iform_dec
-            else:
-                check_val=altform_dec
-            if check_val!=Ternary.TRUE:
-                result=check_val
-                break
-        if result==Ternary.TRUE:
-            return Ternary.TRUE
+    # #If And(ForAll(x,F),Exists(x,G)) is True, then Exists(x,F&G) is True
+    # #since there is at least one x for which G(x) is True, and F(x) is True for all x
+    # #By the same logic, if you have Exists(x,F)&ForAll(x,G)&ForAll(x,H), then Exists(x,F&G&H) is True
+    # altforms=(pawff.ForAllForm(var,iform) for iform in forms)
+    # altforms_dec=tuple(decider(altform) for altform in altforms)
+    # for j,iform_dec in enumerate(iforms_dec):
+    #     result=Ternary.TRUE
+    #     for i, altform_dec in enumerate(altforms_dec):
+    #         if i==j:
+    #             check_val=iform_dec
+    #         else:
+    #             check_val=altform_dec
+    #         if check_val!=Ternary.TRUE:
+    #             result=check_val
+    #             break
+    #     if result==Ternary.TRUE:
+    #         return Ternary.TRUE
 
-    return Ternary.UNKNOWN
+    # return Ternary.UNKNOWN
 
 def exists_forall_decider(exists_var:pawff.Var,forall_var:pawff.Var,form:pawff.Form)->Ternary:
     if type(form)==pawff.AtForm:
@@ -193,3 +197,52 @@ def exists_multivar_decider(vars:set[pawff.Var],form:pawff.Form)->Ternary:  # py
         if type(form.term2)==pawff.Var and (form.term2 not in form.term1.vars_used()):
                 return Ternary.TRUE
     return Ternary.UNKNOWN
+
+def set_decider(set_expr: natset.SetExpr) -> natset.NatSet:
+    simplified=set_expr.simplify()
+    if simplified.var not in simplified.form.vars_used():
+        dec=decider(simplified.form)
+        if dec==Ternary.TRUE:
+            return natset.FullSet()
+        if dec==Ternary.FALSE:
+            return natset.EmptySet()
+        return natset.UnknownSet()
+    if type(simplified.form)==pawff.AtForm:
+        t1, t2 = simplified.form.term1, simplified.form.term2
+        #Set(x,x=a) is just {a} 
+        if type(t1)==pawff.Var and t1 not in t2.vars_used():
+                return natset.FiniteNatSet({t2.eval()})
+        if type(t2)==pawff.Var and t2 not in t1.vars_used():
+                return natset.FiniteNatSet({t1.eval()})
+        #Set(x,S(f(x))=0) is empty because LHS>=1
+        if type(t1)==pawff.Zero and type(t2)==pawff.Succ:
+            return natset.EmptySet()
+        if type(t2)==pawff.Zero and type(t1)==pawff.Succ:
+            return natset.EmptySet()
+        succs=0
+        while type(t1)==pawff.Succ:
+            succs+=1
+            t1=t1.term
+        while type(t2)==pawff.Succ:
+            succs-=1
+            t2=t2.term
+        #S^n(t)==S^m(t) iff m==n
+        if t1==t2:
+            return natset.FullSet() if succs==0 else natset.EmptySet()
+        
+    if type(simplified.form)==pawff.NotForm:
+        comp_expr=natset.SetExpr(simplified.var, simplified.form.form)
+        compset=set_decider(comp_expr)
+        return compset.complement()
+
+    if type(simplified.form)==pawff.AndForm:
+        return natset.intersection(
+            *[set_decider(natset.SetExpr(simplified.var, form)) for form in simplified.form.forms]
+        )
+
+    if type(simplified.form)==pawff.OrForm:
+        return natset.union(
+            *[set_decider(natset.SetExpr(simplified.var, form)) for form in simplified.form.forms]
+        )
+    
+    return natset.UnknownSet()

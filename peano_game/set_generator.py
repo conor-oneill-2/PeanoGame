@@ -1,6 +1,6 @@
 from peano_game.generator import wff
+from peano_game.natset import SetExpr
 from peano_game.pawff import Var
-from peano_game.set import SetExpr
 
 
 def set_wff(i:int) -> SetExpr:

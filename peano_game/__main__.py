@@ -1,7 +1,6 @@
-from peano_game.decider import decider
+from peano_game.decider import decider, set_decider
 from peano_game.generator import wff
-from peano_game.set import UnknownSet
-from peano_game.set_decider import set_decider
+from peano_game.natset import UnknownSet
 from peano_game.set_generator import set_wff
 from peano_game.ternary import Ternary
 
