@@ -13,12 +13,15 @@ class SetExpr:
         self.var=var
         self.form=form
 
+    def simplify(self) -> "SetExpr":
+        return SetExpr(self.var, self.form.simplify())
+
     def __str__(self)->str:
         return f"SetExpr({self.var},{self.form})"
 
 class NatSet(ABC):
     @abstractmethod
-    def __contains__(self, item:int)->bool:
+    def __contains__(self, item:int)->Ternary:
         pass
 
     @abstractmethod
@@ -37,8 +40,8 @@ class FiniteNatSet(NatSet):
     def __init__(self, items:set[int]):
         self._items = items
 
-    def __contains__(self, item:int)->bool:
-        return item in self._items
+    def __contains__(self, item:int)->Ternary:
+        return Ternary.TRUE if item in self._items else Ternary.FALSE
 
     def simplify(self)->NatSet:
         if not self._items:
@@ -62,8 +65,8 @@ class EmptySet(FiniteNatSet):
     def __init__(self):
         super().__init__(set())
 
-    def __contains__(self, item:int)->bool:
-        return False
+    def __contains__(self, item:int)->Ternary:
+        return Ternary.FALSE
 
     def simplify(self)->NatSet:
         return self
@@ -78,8 +81,8 @@ class FiniteComplementSet(NatSet):
     def __init__(self, items:set[int]):
         self._items = items
 
-    def __contains__(self, item:int)->bool:
-        return item not in self._items
+    def __contains__(self, item:int)->Ternary:
+        return Ternary.FALSE if item in self._items else Ternary.TRUE
 
     def simplify(self)->NatSet:
         if not self._items:
@@ -103,8 +106,8 @@ class FullSet(FiniteComplementSet):
     def __init__(self):
         super().__init__(set())
 
-    def __contains__(self, item:int)->bool:
-        return True
+    def __contains__(self, item:int)->Ternary:
+        return Ternary.TRUE
 
     def simplify(self)->NatSet:
         return self
@@ -116,8 +119,8 @@ class IntersectionSet(NatSet):
     def __init__(self, *sets:NatSet):
         self._sets = sets
     
-    def __contains__(self, item:int)->bool:
-        return all(item in s for s in self._sets)
+    def __contains__(self, item:int)->Ternary:
+        return Ternary.TRUE if all(item in s for s in self._sets) else Ternary.FALSE
 
     def simplify(self)->NatSet:
         if len(self._sets) == 0:
@@ -157,8 +160,8 @@ class UnionSet(NatSet):
     def __init__(self, *sets:NatSet):
         self._sets = sets
     
-    def __contains__(self, item:int)->bool:
-        return any(item in s for s in self._sets)
+    def __contains__(self, item:int)->Ternary:
+        return Ternary.TRUE if any(item in s for s in self._sets) else Ternary.FALSE
 
     def simplify(self)->NatSet:
         if len(self._sets) == 0:
@@ -193,3 +196,25 @@ class UnionSet(NatSet):
 
     def __repr__(self)->str:
         return f"UnionSet({self._sets})"
+
+class UnknownSet(NatSet):
+    def __init__(self):
+        pass
+
+    def __contains__(self, item:int)->Ternary:
+        return Ternary.UNKNOWN
+
+    def simplify(self)->NatSet:
+        return self
+
+    def is_empty(self)->Ternary:
+        return Ternary.UNKNOWN
+
+    def is_full(self)->Ternary:
+        return Ternary.UNKNOWN
+
+    def __eq__(self, other:object) -> bool:
+        return isinstance(other, UnknownSet)
+
+    def __repr__(self)->str:
+        return "UnknownSet()"
