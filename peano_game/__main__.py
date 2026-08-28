@@ -41,4 +41,4 @@ def set_detailed_decider(godel_num:int):
     
 if __name__=="__main__":
     # set_detailed_decider(196)
-    set_iterate_until_unknown()
+    iterate_until_unknown()

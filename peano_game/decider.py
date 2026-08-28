@@ -64,32 +64,10 @@ def for_all_decider(var:pawff.Var,form:pawff.Form)->Ternary:
         return poly_eq_decider(form.term1,form.term2)
 
     if type(form)==pawff.OrForm:
-        #IMPORTANT: ForAll(x,F|G) is NOT equivalent to ForAll(x,F)|ForAll(x,G)
-        #But if ForAll(x,F) is True, then ForAll(x,F|G) is True
-        #and if ForAll(x,G) is True, then ForAll(x,F|G) is True
-        iforms=(pawff.ForAllForm(var,iform) for iform in form.forms)
-        iforms_dec=tuple(decider(iform) for iform in iforms)
-        if any(iform_dec==Ternary.TRUE for iform_dec in iforms_dec):
-            return Ternary.TRUE
-
-        #If OR(ForAll(x,F),Exists(x,G)) is False, then ForAll(x,F|G) is False
-        #since there is at least one x for which F(x) is False, and G(x) is False for all x
-        #and similarly, if ForAll(x,F) is false and for all other terms Exists(x,G) are false,
-        #then the whole formula is false
-        altforms=(pawff.ExistsForm(var,iform) for iform in form.forms)
-        altforms_dec=tuple(decider(altform) for altform in altforms)
-        for j,iform_dec in enumerate(iforms_dec):
-            result=Ternary.FALSE
-            for i, altform_dec in enumerate(altforms_dec):
-                if i==j:
-                    check_val=iform_dec
-                else:
-                    check_val=altform_dec
-                if check_val!=Ternary.FALSE:
-                    result=check_val
-                    break
-            if result==Ternary.FALSE:
-                return Ternary.FALSE
+        set_exprs=(natset.SetExpr(var,iform) for iform in form.forms)
+        set_decs=(set_decider(set_expr) for set_expr in set_exprs)
+        int_set=natset.intersection(*set_decs)
+        return int_set.is_full()
 
     if type(form)==pawff.ExistsForm:
         return forall_exists_decider(var,form.var,form.form)
@@ -118,7 +96,10 @@ def exists_decider(var:pawff.Var,form:pawff.Form)->Ternary:
         return rational_roots_decider(var,form.term1,form.term2)
 
     if type(form)==pawff.AndForm:
-        return exists_and_decider(var,*form.forms)
+        set_exprs=(natset.SetExpr(var,iform) for iform in form.forms)
+        set_exprs_dec=tuple(set_decider(set_expr) for set_expr in set_exprs)
+        union_set=natset.union(*set_exprs_dec)
+        return ~union_set.is_empty()
 
     if type(form)==pawff.ForAllForm:
         return exists_forall_decider(var,form.var,form.form)
@@ -146,38 +127,6 @@ def rational_roots_decider(var:pawff.Var,term1:pawff.Term,term2:pawff.Term)->Ter
             return Ternary.TRUE
     return Ternary.FALSE
 
-def exists_and_decider(var:pawff.Var,*forms:pawff.Form)->Ternary:
-    set_exprs=(natset.SetExpr(var,iform) for iform in forms)
-    set_exprs_dec=tuple(set_decider(set_expr) for set_expr in set_exprs)
-    union_set=natset.union(*set_exprs_dec)
-    return ~union_set.is_empty()
-    # #IMPORTANT: Exists(x,F&G) is NOT equivalent to Exists(x,F)&Exists(x,G)
-    # #But if Exists(x,F) is False, then Exists(x,F&G) is False
-    # #and if Exists(x,G) is False, then Exists(x,F&G) is False
-    # iforms=(pawff.ExistsForm(var,iform) for iform in forms)
-    # iforms_dec=tuple(decider(iform) for iform in iforms)
-    # if any(iform_dec==Ternary.FALSE for iform_dec in iforms_dec):
-    #     return Ternary.FALSE
-
-    # #If And(ForAll(x,F),Exists(x,G)) is True, then Exists(x,F&G) is True
-    # #since there is at least one x for which G(x) is True, and F(x) is True for all x
-    # #By the same logic, if you have Exists(x,F)&ForAll(x,G)&ForAll(x,H), then Exists(x,F&G&H) is True
-    # altforms=(pawff.ForAllForm(var,iform) for iform in forms)
-    # altforms_dec=tuple(decider(altform) for altform in altforms)
-    # for j,iform_dec in enumerate(iforms_dec):
-    #     result=Ternary.TRUE
-    #     for i, altform_dec in enumerate(altforms_dec):
-    #         if i==j:
-    #             check_val=iform_dec
-    #         else:
-    #             check_val=altform_dec
-    #         if check_val!=Ternary.TRUE:
-    #             result=check_val
-    #             break
-    #     if result==Ternary.TRUE:
-    #         return Ternary.TRUE
-
-    # return Ternary.UNKNOWN
 
 def exists_forall_decider(exists_var:pawff.Var,forall_var:pawff.Var,form:pawff.Form)->Ternary:
     if type(form)==pawff.AtForm:
