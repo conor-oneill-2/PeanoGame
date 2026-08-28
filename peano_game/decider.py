@@ -34,14 +34,14 @@ def decider(form:pawff.Form,nf:int=0)->Ternary:
         case pawff.ForAllForm:
             form=cast(pawff.ForAllForm, form)
             if nf==0:
-                first_nf=form.simplify()
-                return decider(first_nf,1)
+                simplified=form.simplify()
+                return decider(simplified,1)
             return for_all_decider(form.var,form.form)
         case pawff.ExistsForm:
             form=cast(pawff.ExistsForm, form)
             if nf==0:
-                first_nf=form.simplify()
-                return decider(first_nf,1)
+                simplified=form.simplify()
+                return decider(simplified,1)
             return exists_decider(form.var,form.form)
         case _:
             raise TypeError(f"Unexpected form type: {type(form)}")
@@ -89,6 +89,12 @@ def forall_exists_decider(forall_var:pawff.Var,exists_var:pawff.Var,form:pawff.F
             return Ternary.TRUE
         if form.term1.vars_used()=={forall_var} and form.term2==exists_var:
             return Ternary.TRUE
+        #If expression is of type S(...)=fa_var, then result is False
+        #since fa_var can be 0, and LHS>=1
+        if type(form.term1)==pawff.Succ and form.term2==forall_var:
+            return Ternary.FALSE
+        if type(form.term2)==pawff.Succ and form.term1==forall_var:
+            return Ternary.FALSE
     return Ternary.UNKNOWN
 
 def exists_decider(var:pawff.Var,form:pawff.Form)->Ternary:

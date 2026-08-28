@@ -326,7 +326,7 @@ class Times(Term):
     def poly(self)->Poly:
         if self.poly_cache is None:
             poly_ddict:defaultdict[frozenset[tuple[Var,int]],int]=defaultdict(int)
-            poly_ddict[frozenset()]=succ_form(1)
+            poly_ddict[frozenset()]=1
             self.poly_cache=Poly(poly_ddict)
             for term in self.terms:
                 self.poly_cache*=term.poly()
