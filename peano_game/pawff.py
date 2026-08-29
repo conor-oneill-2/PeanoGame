@@ -427,11 +427,65 @@ class AtForm(Form):
             return self
         t1=self.term1.simplify()
         t2=self.term2.simplify()
-        #S(x)=S(y) => x=y
-        while type(t1)==Succ and type(t2)==Succ:
-            t1=t1.term
-            t2=t2.term
-        result=AtForm(t1,t2)
+
+        numsuccs=0
+        innert1=t1
+        while type(innert1)==Succ:
+            numsuccs+=1
+            innert1=innert1.term
+        innert2=t2
+        while type(innert2)==Succ:
+            numsuccs-=1
+            innert2=innert2.term
+
+        if type(innert1)==Plus:
+            terms1=list(innert1.terms)
+        else:
+            terms1=[innert1]
+        if type(innert2)==Plus:
+            terms2=list(innert2.terms)
+        else:
+            terms2=[innert2]
+
+        popped=False
+        i=0
+        while i < len(terms1):
+            j=0
+            ipopped=False
+            while j < len(terms2):
+                if terms1[i]==terms2[j]:
+                    _=terms1.pop(i)
+                    _=terms2.pop(j)
+                    ipopped=True
+                    break
+                else:
+                    j+=1
+            if ipopped:
+                popped=True
+            if not ipopped:
+                i+=1
+        if popped:
+            if len(terms1)==0:
+                innert1=Zero()
+            elif len(terms1)==1:
+                innert1=terms1[0]
+            else:
+                innert1=Plus(*terms1)
+            if len(terms2)==0:
+                innert2=Zero()
+            elif len(terms2)==1:
+                innert2=terms2[0]
+            else:
+                innert2=Plus(*terms2)
+
+        if numsuccs>0:
+            for _ in range(numsuccs):
+                innert1=Succ(innert1)
+        elif numsuccs<0:
+            for _ in range(-numsuccs):
+                innert2=Succ(innert2)
+
+        result=AtForm(innert1,innert2)
         result._is_simplified=True
         return result
 
